@@ -1,0 +1,21 @@
+# cargo-mutants configuration
+# Rename to `.mutants.toml` to activate.
+# Docs: https://mutants.rs/
+#
+# Why this exists: `cargo mutants` runs the *entire* test suite once per
+# mutation. On a non-trivial project (integration tests, e2e suites,
+# wasm-pack steps, multi-crate workspaces) the unscoped run can take
+# many hours. Scope it.
+
+# Use nextest — much faster than `cargo test`.
+test_tool = "nextest"
+
+# Run library tests only — skip slow integration / e2e tests.
+additional_cargo_test_args = ["--lib"]
+
+# Limit which source files are mutated. Adjust glob to your project.
+# Examples:
+#   - single-crate: ["src/**/*.rs"]
+#   - workspace, one focus crate: ["my-crate/src/**/*.rs"]
+#   - workspace, all crates: ["crates/*/src/**/*.rs"]
+examine_globs = ["src/**/*.rs"]
