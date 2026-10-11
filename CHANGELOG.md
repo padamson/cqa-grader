@@ -28,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   each Now and Next item with acceptance criteria that name the test
   proving them, held to its types and to existing tests by the site
   crate's own tests and CI job.
+- The landing page in `crates/site` (Leptos, Trunk, Tailwind v4, in the
+  brand's board palette), with each roadmap item's criteria in a popover
+  and `crates/site/preview.sh` to serve it locally.
 - Test graphs generated from sibling checkouts through `panschema.toml`
   rather than vendored; CI clones the siblings and installs panschema
   from its main SHA.

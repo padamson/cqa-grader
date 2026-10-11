@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cqa-grader: grade what a retriever found</title>
+    <meta
+      name="description"
+      content="cqa-grader grades what a system retrieved and cited against the competency questions a knowledge graph says it can answer. Deterministic, no model in the loop, runs in CI."
+    />
+    <!-- OG/Twitter tags so crawlers see content even though the page is CSR/WASM. -->
+    <link rel="canonical" href="https://padamson.github.io/cqa-grader/" />
+    <meta property="og:title" content="cqa-grader: grade what a retriever found" />
+    <meta
+      property="og:description"
+      content="Grade a system's retrieval trace against a cqa competency-question benchmark."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://padamson.github.io/cqa-grader/" />
+    <meta name="twitter:card" content="summary" />
+    <link data-trunk rel="tailwind-css" href="input.css" />
+    <!-- Receipts, written by the dogfood test. Copied on every build, so
+         they survive `trunk serve` rebuilds. -->
+    <link data-trunk rel="copy-dir" href="public/receipts" />
+    <!-- The roadmap's data, at the build's root: the dev build's copy is
+         the current roadmap every version fetches (src/roadmap.rs). -->
+    <link data-trunk rel="copy-file" href="public/roadmap.json" />
+    <!-- The brand from the repo's brand/ directory: the fonts (OFL,
+         licenses alongside) beside the built stylesheet, and the mark as
+         the favicon. -->
+    <link data-trunk rel="copy-dir" href="../../brand/fonts" />
+    <link data-trunk rel="copy-file" href="../../brand/mark.svg" />
+    <link rel="icon" type="image/svg+xml" href="mark.svg" />
+  </head>
+  <body></body>
+</html>

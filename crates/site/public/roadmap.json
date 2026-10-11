@@ -76,7 +76,8 @@
           "criterion": "An item's criteria open from the item and close again",
           "test": "crates/site-e2e/tests/landing_page.rs::roadmap_criteria_open_and_close"
         }
-      ]
+      ],
+      "status": "in-progress"
     },
     {
       "id": "roadmap-next-budget",

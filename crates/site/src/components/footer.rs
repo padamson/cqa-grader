@@ -1,0 +1,31 @@
+use leptos::prelude::*;
+
+use crate::links::{CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB, PLAYWRIGHT_RUST};
+
+#[component]
+pub fn Footer() -> impl IntoView {
+    let is_dev = crate::version::is_dev();
+    view! {
+        <footer id="footer" class="mt-8 border-t border-board-600 px-6 py-10">
+            <div class="mx-auto flex max-w-5xl flex-col gap-4 text-sm text-chalk-50/70">
+                <nav class="flex flex-wrap gap-5">
+                    <a href=GITHUB class="hover:text-chalk-yellow">"GitHub"</a>
+                    <a href="#roadmap" class="hover:text-chalk-yellow">"Roadmap"</a>
+                    <a href=CQA_SCHEMA class="hover:text-chalk-yellow">"The cqa schema"</a>
+                    {(!is_dev).then(|| view! {
+                        <a href=DOCS_RS class="hover:text-chalk-yellow">"Docs"</a>
+                        <a href=CRATES_IO class="hover:text-chalk-yellow">"crates.io"</a>
+                    })}
+                </nav>
+                <p id="credits" class="max-w-3xl">
+                    "Benchmarks are written in the "
+                    <a href=CQA_SCHEMA class="underline hover:text-chalk-yellow">"cqa"</a>
+                    " vocabulary. This page is tested with "
+                    <a href=PLAYWRIGHT_RUST class="underline hover:text-chalk-yellow">"playwright-rs"</a>
+                    "."
+                </p>
+                <p>"Licensed under MIT or Apache-2.0. Built with Leptos and Trunk."</p>
+            </div>
+        </footer>
+    }
+}

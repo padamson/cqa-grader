@@ -1,0 +1,7 @@
+# In a benchmark's own CI: the baseline shows every question is answerable.
+- name: Grade the baseline against the benchmark
+  run: |
+    cqa-grader baseline --graph site/artifacts/wine.ttl \
+      --benchmark site/artifacts/wine-benchmark.ttl --output trace.json
+    cqa-grader grade --benchmark site/artifacts/wine-benchmark.ttl \
+      --trace trace.json --report report.json

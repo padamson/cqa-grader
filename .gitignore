@@ -1,6 +1,9 @@
 # Build artifacts
 /target
 /crates/site/target
+/crates/site/dist
+/crates/site/public/receipts/*
+!/crates/site/public/receipts/.gitkeep
 
 # cargo-mutants output (current run + rotated previous run)
 /mutants.out/

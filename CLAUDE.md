@@ -16,9 +16,11 @@ benchmark's CI has something to grade.
   lookup, cites everything, asserts absence when the named records fall
   into unjoined groups. It must never read the key; a test checks that.
 - `src/main.rs` is the CLI: `grade`, `baseline`, `trace-schema`.
-- `crates/site/` is the landing site, outside the workspace (its own
-  `[workspace]`; run cargo with `--manifest-path crates/site/Cargo.toml`). Today
-  it holds `public/roadmap.json` and its types. Each Now and Next item
+- `crates/site/` is the landing site (Leptos CSR, Trunk, Tailwind v4),
+  outside the workspace (its own `[workspace]`; run cargo with
+  `--manifest-path crates/site/Cargo.toml`, clippy with
+  `--target wasm32-unknown-unknown`). `crates/site/preview.sh` serves it
+  with hot reload. `public/roadmap.json` is the roadmap. Each Now and Next item
   lists acceptance criteria, each naming its proving test as
   `<path>::<function>`; a test fails if a done item names a test that
   does not exist. Move an item in the commit that does its work.

@@ -1,0 +1,16 @@
+[build]
+target = "index.html"
+# Local preview and the dogfood gate serve at the root; the deploy builds
+# the snapshot with `--public-url /cqa-grader/<dest>/` (project Pages).
+public_url = "/"
+
+[tools]
+# Pin the Tailwind v4 standalone binary (Trunk defaults to a v3 release,
+# which cannot parse the v4 `@import "tailwindcss"` / `@theme` input.css).
+tailwindcss = "4.3.0"
+
+[watch]
+# `copy-dir` re-copies public/receipts into dist on every build. Without
+# ignoring it (and dist itself) the watcher sees the copy and retriggers
+# the build, looping forever under `trunk serve`.
+ignore = ["public/receipts", "dist"]

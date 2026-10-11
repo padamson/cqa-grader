@@ -1,0 +1,16 @@
+{
+  "trace_format": "0.1",
+  "benchmark": "wine-benchmark",
+  "system": { "name": "my-retriever", "version": "0.3.0" },
+  "attempts": [
+    {
+      "question": "cq-03",
+      "retrieved": [
+        "https://w3id.org/wine-linkml/cabernet-sauvignon",
+        "https://w3id.org/wine-linkml/seafood-dish"
+      ],
+      "cited": [],
+      "asserts_absence": true
+    }
+  ]
+}

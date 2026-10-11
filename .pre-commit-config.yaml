@@ -68,7 +68,7 @@ repos:
         description: fmt, clippy and tests for the site crate
         entry: >-
           bash -c 'cargo fmt --manifest-path crates/site/Cargo.toml -- --check
-          && cargo clippy --manifest-path crates/site/Cargo.toml --all-targets -- -D warnings
+          && cargo clippy --manifest-path crates/site/Cargo.toml --target wasm32-unknown-unknown --all-targets -- -D warnings
           && cargo nextest run --manifest-path crates/site/Cargo.toml'
         language: system
         files: (\.rs$|^crates/site/)

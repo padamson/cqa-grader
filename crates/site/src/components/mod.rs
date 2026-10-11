@@ -1,0 +1,26 @@
+mod code_block;
+mod code_tabs;
+mod dogfood_banner;
+mod example;
+mod feature_card;
+mod features;
+mod footer;
+mod hero;
+mod how_it_works;
+pub mod icons;
+mod install;
+mod roadmap;
+mod version_switcher;
+
+pub use code_block::CodeBlock;
+pub use code_tabs::CodeTabs;
+pub use dogfood_banner::DogfoodBanner;
+pub use example::Example;
+pub use feature_card::FeatureCard;
+pub use features::Features;
+pub use footer::Footer;
+pub use hero::Hero;
+pub use how_it_works::HowItWorks;
+pub use install::Install;
+pub use roadmap::Roadmap;
+pub use version_switcher::VersionSwitcher;

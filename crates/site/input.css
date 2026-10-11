@@ -1,0 +1,40 @@
+@import "tailwindcss";
+/* The cqa-grader wordmark from brand/; its fonts are copied beside the
+   built stylesheet by index.html. */
+@import "../../brand/wordmark.css";
+
+/* Tailwind v4 scans these sources for utility class names. Leptos view!
+   macros live in .rs files, which v4's automatic content detection won't
+   find. */
+@source "./src/**/*.rs";
+
+/* The board palette from brand/palette.css, as Tailwind colors. */
+@theme {
+  --color-board-900: #1b2a24;
+  --color-board-800: #243832;
+  --color-board-600: #3a554c;
+  --color-chalk-50: #f3f1e8;
+  --color-chalk-yellow: #f2d16b;
+  --color-chalk-blue: #9ccbe8;
+  --color-chalk-pink: #f2a08e;
+  --color-paper: #fbf8ef;
+  --color-ink: #1f2a44;
+  --color-red-pen: #c0392b;
+  --font-sans: "Cabin", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The wordmark's accent: chalk-yellow on the board. */
+:root {
+  --brand-accent: var(--color-chalk-yellow);
+}
+
+/* A little chalk dust on the board. */
+body {
+  background-color: var(--color-board-900);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E");
+}
+
+/* A roadmap item's criteria open as a native popover, in the top layer. */
+[popover]::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}

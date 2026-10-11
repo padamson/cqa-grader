@@ -1,6 +1,11 @@
 //! The roadmap as data, in `public/roadmap.json`: Now (the next release,
-//! with each item's status), Next and Later. Moving an item is an edit to
-//! the file, made in the commit that does the work.
+//! with each item's status), Next and Later. Trunk copies the file into
+//! every build, so main's copy is published at `/cqa-grader/dev/roadmap.json`.
+//! The dev build shows its own copy, which is main's; every release build
+//! fetches the dev one, so whichever version a visitor views, the roadmap
+//! is the current one, and shows the copy compiled in here only if that
+//! fetch fails. Moving an item is an edit to the file, made in the commit
+//! that does the work.
 //!
 //! Each item says what done means as a list of acceptance criteria, and
 //! each criterion names the test that proves it, as `<path>::<function>`
@@ -17,8 +22,15 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::version::snapshot_url;
+
 /// The roadmap this build was compiled with.
 pub const BUILT: &str = include_str!("../public/roadmap.json");
+
+/// Where main's roadmap is published, which every release build fetches.
+pub fn current_url() -> String {
+    format!("{}roadmap.json", snapshot_url("dev"))
+}
 
 /// Unknown keys, statuses and columns are tolerated rather than refused,
 /// so an older snapshot can still read a roadmap a newer main publishes;
@@ -222,6 +234,11 @@ mod tests {
              an unknown status or column, or a planned status, a null issue or an \
              empty acceptance list written out (leave those out)"
         );
+    }
+
+    #[test]
+    fn main_s_roadmap_is_fetched_from_the_dev_build() {
+        assert_eq!(current_url(), "/cqa-grader/dev/roadmap.json");
     }
 
     #[test]

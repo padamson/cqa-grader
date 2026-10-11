@@ -1,0 +1,10 @@
+<https://w3id.org/cqa/wine-benchmark/cq-03> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  cqa:connecting_class "https://w3id.org/wine-linkml/PairingRecommendation"^^xsd:anyURI;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/seafood-dish>;
+  cqa:id "cq-03";
+  cqa:question "Does Cabernet Sauvignon go well with seafood?";
+  cqa:unconnected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/seafood-dish>.
