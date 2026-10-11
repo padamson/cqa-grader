@@ -86,7 +86,7 @@ jobs:
           workspaces: crates/site
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.85.4
+        uses: taiki-e/install-action@v2.87.26
         with:
           tool: cargo-nextest
 
