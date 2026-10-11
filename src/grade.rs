@@ -1,6 +1,6 @@
 //! Score a trace against a benchmark.
 //!
-//! Every question gets the same three base checks, then one check per
+//! Every question gets the same four base checks, then one check per
 //! answer kind it names. All of them must pass for the question to pass.
 //!
 //! Base checks:
@@ -9,6 +9,9 @@
 //! - `anchors-reached`: `retrieved` ⊇ `expected_anchors`.
 //! - `citations-grounded`: `cited` ⊆ `retrieved`. A citation to a record
 //!   retrieval never reached is a fabrication, whatever the key says.
+//! - `no-false-absence`: the attempt `asserts_absence` only if the question
+//!   is a `closed-world-negative`. "None on record" for a question whose
+//!   answer is on record is a wrong answer, however much was retrieved.
 //!
 //! Per-kind checks:
 //!
@@ -295,6 +298,20 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         "retrieved",
     ));
 
+    let negative = question
+        .answer_kinds
+        .contains(&AnswerKind::ClosedWorldNegative);
+    let false_absence = attempt.asserts_absence && !negative;
+    checks.push(Check::new(
+        "no-false-absence",
+        !false_absence,
+        if false_absence {
+            "the attempt asserts absence, and the key says the answer is on record"
+        } else {
+            "no absence asserted against the key"
+        },
+    ));
+
     let names_attribution = question.answer_kinds.contains(&AnswerKind::Attribution);
     if !question.expected_citations.is_empty() && !names_attribution {
         checks.push(Check::superset(
@@ -549,6 +566,17 @@ mod tests {
         let c = check(r, "closed-world-negative");
         assert!(!c.passed);
         assert!(c.detail.contains("does not assert absence"));
+    }
+
+    #[test]
+    fn absence_asserted_on_a_positive_question_fails() {
+        let b = wine();
+        let q = b.question("cq-04").unwrap();
+        let mut a = perfect(q);
+        a.asserts_absence = true;
+        let r = grade_question(q, Some(&a));
+        assert!(!check(&r, "no-false-absence").passed, "{r:?}");
+        assert!(!r.passed, "{r:?}");
     }
 
     #[test]

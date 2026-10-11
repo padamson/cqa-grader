@@ -1,4 +1,7 @@
-# In a benchmark's own CI: the baseline shows every question is answerable.
+# In a benchmark's own CI: the baseline shows every record an answer needs
+# can be found. It never says "none on record", so grading exits 1 on a
+# benchmark with a closed-world negative, until grading can require only
+# that there be no wrong answers (see the roadmap).
 - name: Grade the baseline against the benchmark
   run: |
     cqa-grader baseline --graph site/artifacts/wine.ttl \

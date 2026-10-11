@@ -21,7 +21,7 @@ fn cli() -> Command {
 }
 
 #[test]
-fn baseline_then_grade_passes_wine() {
+fn baseline_then_grade_fails_only_closed_world_negatives() {
     let dir = tempdir();
     let trace = dir.join("trace.json");
     cli()
@@ -38,12 +38,16 @@ fn baseline_then_grade_passes_wine() {
         .args(["--trace", trace.to_str().unwrap()])
         .args(["--report", report.to_str().unwrap()])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("6 questions: 6 passed, 0 failed"));
+        .code(1);
     let json: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(report).unwrap()).unwrap();
-    assert_eq!(json["passed"], true);
-    assert_eq!(json["summary"]["passed"], 6);
+    for r in json["results"].as_array().unwrap() {
+        let negative = r["answer_kinds"]
+            .as_array()
+            .unwrap()
+            .contains(&"closed-world-negative".into());
+        assert_eq!(r["passed"], !negative, "{r}");
+    }
 }
 
 #[test]
@@ -86,18 +90,15 @@ fn a_trace_for_another_benchmark_is_a_usage_error() {
 fn baseline_reads_every_graph_given() {
     let dir = tempdir();
     let (first, second) = split_wine(&dir);
+    let whole = grade_baseline_over(&dir, &[&common::fixture_path("wine.ttl")]);
     assert_eq!(
         grade_baseline_over(&dir, &[&first, &second]),
-        Some(0),
+        whole,
         "both halves"
     );
-    // Each half alone misses anchors, so the pass above needed both.
-    assert_eq!(grade_baseline_over(&dir, &[&first]), Some(1), "first half");
-    assert_eq!(
-        grade_baseline_over(&dir, &[&second]),
-        Some(1),
-        "second half"
-    );
+    // Each half alone misses anchors, so matching the whole needed both.
+    assert!(grade_baseline_over(&dir, &[&first]) < whole, "first half");
+    assert!(grade_baseline_over(&dir, &[&second]) < whole, "second half");
 }
 
 #[test]
@@ -119,8 +120,8 @@ fn a_graph_that_fails_to_load_is_named() {
 }
 
 /// Run the baseline over `graphs`, grade its trace against wine's
-/// benchmark, and return the grade's exit code.
-fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> Option<i32> {
+/// benchmark, and return how many questions passed.
+fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> u64 {
     let trace = dir.join("trace.json");
     let mut baseline = cli();
     baseline.arg("baseline");
@@ -132,13 +133,18 @@ fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> Option<i32> {
         .args(["--output", trace.to_str().unwrap()])
         .assert()
         .success();
-    cli()
+    let out = cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--trace", trace.to_str().unwrap()])
+        .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
         .output()
-        .unwrap()
-        .status
-        .code()
+        .unwrap();
+    assert!(
+        matches!(out.status.code(), Some(0 | 1)),
+        "grade could not run: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    json["summary"]["passed"].as_u64().unwrap()
 }
 
 /// wine's graph as two N-Triples files (which are Turtle): every other

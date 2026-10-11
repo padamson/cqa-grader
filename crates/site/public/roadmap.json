@@ -2,14 +2,14 @@
   "milestone": "0.1.0",
   "next_milestone": "0.2.0",
   "themes": {
-    "0.1.0": "Ready for the benchmarks being written now",
-    "0.2.0": "Passing takes more than retrieving everything"
+    "0.1.0": "A pass means the question was answered",
+    "0.2.0": "The key read through panschema's model"
   },
   "items": [
     {
       "id": "roadmap-now-false-absence",
       "title": "\"None on record\" only where it's true",
-      "blurb": "An attempt that says \"none on record\" for a question whose answer is on record fails, and the baseline stops saying it there.",
+      "blurb": "An attempt that says \"none on record\" for a question whose answer is on record fails. The baseline never says it: which records a negative is about is written in the key, not the question.",
       "horizon": "now",
       "acceptance": [
         {
@@ -17,14 +17,15 @@
           "test": "src/grade.rs::absence_asserted_on_a_positive_question_fails"
         },
         {
-          "criterion": "The baseline says \"none on record\" only for wine's one question whose answer it is",
-          "test": "tests/integration.rs::the_baseline_asserts_absence_only_where_nothing_joins"
+          "criterion": "The baseline never says \"none on record\"",
+          "test": "tests/integration.rs::the_baseline_never_asserts_absence"
         },
         {
-          "criterion": "The baseline still passes every question in wine's benchmark",
-          "test": "tests/integration.rs::the_baseline_passes_the_wine_benchmark"
+          "criterion": "The baseline fails only closed-world negatives, and only their own check",
+          "test": "tests/integration.rs::the_baseline_fails_only_closed_world_negatives"
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "roadmap-now-graphs",
@@ -44,30 +45,46 @@
       ]
     },
     {
-      "id": "roadmap-now-one-anchor",
-      "title": "\"None on record\" questions about one record",
-      "blurb": "Some of these questions name one record and a kind of record: \"Is there a purchase of cotija?\" The baseline answers \"none on record\" when no record of that kind is linked to the one named.",
+      "id": "roadmap-now-trace-version",
+      "title": "A trace names the graph it was run over",
+      "blurb": "A trace records the dataset and version it retrieved over, and grading refuses one whose dataset or version is not the benchmark's target, so a trace from an older graph is not graded against the current key.",
       "horizon": "now",
       "acceptance": [
         {
-          "criterion": "The baseline says \"none on record\" when the question names one record and a class, and no instance of the class is adjacent to it",
-          "test": "src/baseline.rs::one_record_and_a_class_with_nothing_adjacent_is_absence"
+          "criterion": "A trace whose dataset or version differs from the benchmark's target is refused with exit code 2",
+          "test": "tests/cli.rs::a_trace_for_another_dataset_version_is_a_usage_error"
         },
         {
-          "criterion": "It does not when an instance of the class is adjacent",
-          "test": "src/baseline.rs::an_adjacent_instance_of_the_class_is_not_absence"
-        },
-        {
-          "criterion": "The baseline still never reads the key",
-          "test": "tests/integration.rs::the_baseline_never_reads_the_key"
+          "criterion": "The baseline records the dataset and version of the graph it was given, never the benchmark's",
+          "test": "tests/cli.rs::the_baseline_records_the_graph_it_ran_over"
         }
       ]
     },
     {
-      "id": "roadmap-next-budget",
+      "id": "roadmap-now-unanswered",
+      "title": "Tell an unanswered negative from a wrong answer",
+      "blurb": "An attempt that reaches a negative's records and says nothing has left it unanswered; one that says \"none on record\" where the answer is on record is wrong. Grading reports the two apart, so a CI can require no wrong answers from a system that, like the baseline, leaves negatives unanswered.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "A negative reached and left unanswered is reported apart from a wrong answer",
+          "test": "src/grade.rs::an_unanswered_negative_is_not_a_wrong_answer"
+        },
+        {
+          "criterion": "Grading can require no wrong answers, and the baseline over wine meets it",
+          "test": "tests/cli.rs::the_baseline_gives_no_wrong_answers"
+        },
+        {
+          "criterion": "Any wrong answer still fails that requirement",
+          "test": "tests/cli.rs::a_wrong_answer_fails_the_no_wrong_answers_requirement"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-budget",
       "title": "A retrieval budget",
-      "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. The cap may belong in the benchmark rather than the grader.",
-      "horizon": "next",
+      "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. Waits on cqa v0.2 deciding whether the cap is the benchmark's to state.",
+      "horizon": "now",
       "acceptance": [
         {
           "criterion": "An attempt that retrieves more than the budget fails anchors-reached",
@@ -76,14 +93,38 @@
       ]
     },
     {
-      "id": "roadmap-next-citation-precision",
+      "id": "roadmap-now-citation-precision",
       "title": "Citation precision",
-      "blurb": "Citing everything that was retrieved stops passing attribution.",
-      "horizon": "next",
+      "blurb": "Citing everything that was retrieved stops passing attribution. Waits on cqa v0.2, for the same reason: who sets the floor.",
+      "horizon": "now",
       "acceptance": [
         {
           "criterion": "Attribution fails when the share of citations the key expects is under the floor",
           "test": "src/grade.rs::citing_everything_fails_attribution"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-expected-values",
+      "title": "Check the answer, not only its evidence",
+      "blurb": "Where cqa declares an expected value for an answer kind (a lookup's value, a comparison's order, a quantity within a tolerance), the kind's check compares it with the attempt's, so reaching the right records and answering wrongly fails. The trace gains a structured answer to compare. Waits on cqa v0.2, which scopes expected values.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "A lookup whose answer is not the expected value fails, though it reached every anchor",
+          "test": "src/grade.rs::a_lookup_with_the_wrong_value_fails"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-evidence-sets",
+      "title": "Alternative evidence sets",
+      "blurb": "More than one set of records can support some answers; any one set satisfies the anchors, so a correct answer resting on other evidence than the key's first choice passes. Waits on cqa declaring them, which its v0.2 scope does not yet include.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "An attempt that reaches any one of a question's evidence sets reaches its anchors",
+          "test": "src/grade.rs::any_one_evidence_set_satisfies_the_anchors"
         }
       ]
     },
@@ -98,12 +139,6 @@
           "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
         }
       ]
-    },
-    {
-      "id": "roadmap-later-evidence-sets",
-      "title": "Alternative evidence sets",
-      "blurb": "More than one set of records that can support an answer, once cqa can declare them; any one set satisfies the anchors.",
-      "horizon": "later"
     },
     {
       "id": "roadmap-later-traversal",

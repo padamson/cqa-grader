@@ -24,7 +24,7 @@ pub fn Features() -> impl IntoView {
                 <FeatureCard
                     id="feature-absence"
                     title="\"None on record\" answers"
-                    blurb="Some questions are correctly answered \"none on record\". The system has to reach the records the question names and then say so; reaching them and saying nothing fails."
+                    blurb="Some questions are correctly answered \"none on record\". The system has to reach the records the question names and then say so; reaching them and saying nothing fails, and so does saying it where the answer is on record."
                 />
                 <FeatureCard
                     id="feature-exit-codes"
@@ -34,7 +34,7 @@ pub fn Features() -> impl IntoView {
                 <FeatureCard
                     id="feature-baseline"
                     title="A naive baseline"
-                    blurb="Finds records by label and looks one link away, never reading the key. It gives a benchmark's CI something to grade, and a real retriever a precision to beat."
+                    blurb="Finds records by label and looks one link away, never reading the key and never saying \"none on record\". It gives a benchmark's CI something to grade, and a real retriever a precision to beat."
                 />
                 <FeatureCard
                     id="feature-schema"

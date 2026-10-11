@@ -9,12 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Read a `cqa:Benchmark` from its published Turtle artifact (`Benchmark`).
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
-- `grade`: three base checks per question (`attempted`, `anchors-reached`,
-  `citations-grounded`) plus one per answer kind, with recall and
-  precision reported per attempt. Text and JSON reports.
+- `grade`: four base checks per question (`attempted`, `anchors-reached`,
+  `citations-grounded`, `no-false-absence`) plus one per answer kind, with
+  recall and precision reported per attempt. Text and JSON reports. An
+  attempt that says "none on record" for a question whose answer is on
+  record fails.
 - The naive baseline retriever (`Baseline`): label linking, one-hop SPARQL
-  lookup, cites everything, asserts absence over unjoined groups. Passes
-  wine's six-question benchmark.
+  lookup, cites everything. It never asserts absence, since which records
+  a negative is about is in the key, not the question; it passes every
+  question in wine's benchmark but the closed-world negative.
 - CLI: `cqa-grader grade`, `cqa-grader baseline`, `cqa-grader trace-schema`.
 - `baseline --graph` can repeat, for a graph published as several files.
   Every file loads into one store (`Baseline::from_paths`), and a file that

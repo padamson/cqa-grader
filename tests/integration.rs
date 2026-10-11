@@ -14,12 +14,26 @@ fn wine() -> (Benchmark, Baseline) {
 }
 
 #[test]
-fn the_baseline_passes_the_wine_benchmark() {
+fn the_baseline_fails_only_closed_world_negatives() {
+    // It reaches every anchor and never asserts absence, so a negative
+    // fails its own check and nothing else does.
     let (benchmark, baseline) = wine();
     let trace = baseline.run(&benchmark, 1).unwrap();
     let report = grade(&benchmark, &trace).unwrap();
-    assert!(report.passed, "{}", report.to_text());
-    assert_eq!(report.summary.questions, 6);
+    for r in &report.results {
+        let failed: Vec<&str> = r
+            .checks
+            .iter()
+            .filter(|c| !c.passed)
+            .map(|c| c.name.as_str())
+            .collect();
+        let expected: &[&str] = if r.answer_kinds.contains(&AnswerKind::ClosedWorldNegative) {
+            &["closed-world-negative"]
+        } else {
+            &[]
+        };
+        assert_eq!(failed, expected, "{}", r.question);
+    }
 }
 
 #[test]
@@ -44,20 +58,18 @@ fn the_baseline_never_reads_the_key() {
 }
 
 #[test]
-fn the_baseline_asserts_absence_only_where_nothing_joins() {
+fn the_baseline_never_asserts_absence() {
     let (benchmark, baseline) = wine();
-    let trace = baseline.run(&benchmark, 1).unwrap();
-    for q in &benchmark.questions {
-        let attempt = trace.attempt(&q.id).unwrap();
-        if q.answer_kinds.contains(&AnswerKind::ClosedWorldNegative) {
-            assert!(attempt.asserts_absence, "{}: should assert absence", q.id);
-        }
+    for hops in 0..=2 {
+        let trace = baseline.run(&benchmark, hops).unwrap();
+        let asserted: Vec<&str> = trace
+            .attempts
+            .iter()
+            .filter(|a| a.asserts_absence)
+            .map(|a| a.question.as_str())
+            .collect();
+        assert_eq!(asserted, Vec::<&str>::new(), "at {hops} hops");
     }
-    // The pairing question names a wine and a food that a recommendation joins.
-    let joined = baseline
-        .retrieve("x", "What is the best choice of wine for grilled meat?", 1)
-        .unwrap();
-    assert!(!joined.asserts_absence);
 }
 
 #[test]

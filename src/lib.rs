@@ -16,15 +16,16 @@
 //! checks.
 //!
 //! Only the deterministic tier lives here today: anchors reached,
-//! citations grounded and rested on, absence asserted where the key
-//! claims one. Judging a prose `answer` against `ground_truth` needs a
+//! citations grounded and rested on, absence asserted where, and only
+//! where, the key claims one. Judging a prose `answer` against `ground_truth` needs a
 //! judge and stays out of CI; the [`Attempt::answer`] slot is where such a
 //! judge will read from.
 //!
 //! [`baseline`] is a deliberately naive retriever (lexical entity linking,
 //! then bounded one-hop SPARQL lookups) so that a benchmark's own CI has a
-//! student to grade. It exists to show a benchmark is answerable, not to
-//! answer it well.
+//! student to grade. It exists to show that every anchor can be reached by
+//! lookup, not to answer well. It never says "none on record", so it fails
+//! every closed-world negative.
 
 pub mod baseline;
 pub mod benchmark;

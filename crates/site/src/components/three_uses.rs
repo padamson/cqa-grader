@@ -20,8 +20,8 @@ pub fn ThreeUses() -> impl IntoView {
                         "Noy and McGuinness's "
                         <a href=N_AND_M class=LINK>"Ontology Development 101"</a>
                         " starts from competency questions. Write an example instance graph and "
-                        "a benchmark for it, and the baseline shows whether the example answers "
-                        "every question. The "
+                        "a benchmark for it, and the baseline shows whether every record an "
+                        "answer needs can be found in the example. The "
                         <a href=ONTOLOGY_TEMPLATE class=LINK>"ontology-authoring-template"</a>
                         "'s wine ontology carries both."
                     </p>
@@ -29,8 +29,8 @@ pub fn ThreeUses() -> impl IntoView {
                 <div id="use-publishing" class=CARD>
                     <h3 class="font-semibold text-chalk-yellow">"Publishing a graph"</h3>
                     <p class="mt-1 text-sm text-chalk-50/80">
-                        "Run the baseline in your repository's CI to show that every question "
-                        "in your benchmark can be answered from the graph you publish."
+                        "Run the baseline in your repository's CI to show that every record "
+                        "your benchmark's answers need can be found in the graph you publish."
                     </p>
                 </div>
                 <div id="use-building" class=CARD>

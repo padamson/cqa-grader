@@ -25,16 +25,16 @@ how the system produced it reaches the grader.
 It has three uses. Someone developing an ontology the way Noy and
 McGuinness's *Ontology Development 101* describes writes an example
 instance graph and a benchmark for its competency questions, and the
-baseline shows whether the example answers them all (the
+baseline shows whether every record an answer needs can be reached in the
+example (the
 [ontology-authoring-template](https://github.com/padamson/ontology-authoring-template)'s
 wine ontology carries both). A graph's repository runs the baseline in
-CI to show that every question can be answered from the published
-graph. Someone building a retriever has their system write a trace and
+CI to show the same of its published graph. Someone building a retriever has their system write a trace and
 grades it against the benchmark.
 
 Two tiers were always the plan. The deterministic tier is here: anchors
-reached, citations grounded and cited, and "none on record" said where
-the key says nothing is. It needs no language model, so the same trace
+reached, citations grounded and cited, and "none on record" said where,
+and only where, the key says nothing is. It needs no language model, so the same trace
 always gets the same grade and it can gate CI. Judging a prose answer
 against `ground_truth` needs a judge and is not built yet; the trace
 carries an `answer` field for when it is.
@@ -58,12 +58,13 @@ cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --format json
 ```text
 wine-benchmark: grading cqa-grader baseline 0.1.0
   cq-02 lookup                  ok    recall 1.00  precision 0.02  retrieved 46
-  cq-03 closed-world-negative   ok    recall 1.00  precision 0.18  retrieved 11
+  cq-03 closed-world-negative   FAIL  recall 1.00  precision 0.18  retrieved 11
+    closed-world-negative: unconnected anchors reached but the attempt does not assert absence
   cq-04 attribution             ok    recall 1.00  precision 0.06  retrieved 47
   cq-05 synthesis               ok    recall 1.00  precision 0.13  retrieved 47
   cq-06 comparison              ok    recall 1.00  precision 0.09  retrieved 46
   cq-07 comparison+attribution  ok    recall 1.00  precision 0.17  retrieved 23
-6 questions: 6 passed, 0 failed
+6 questions: 5 passed, 1 failed
 ```
 
 Run the naive baseline retriever over a graph, so a benchmark's CI has a
@@ -113,7 +114,7 @@ is the prose answer, unread by this tier. The schema is in
 
 ### The checks
 
-Every question gets three base checks, then one per answer kind it
+Every question gets four base checks, then one per answer kind it
 names. All must pass.
 
 | Check | Passes when |
@@ -121,6 +122,7 @@ names. All must pass.
 | `attempted` | the trace holds an attempt at the question |
 | `anchors-reached` | `retrieved` ⊇ `expected_anchors` |
 | `citations-grounded` | `cited` ⊆ `retrieved` |
+| `no-false-absence` | the attempt `asserts_absence` only if the question is a `closed-world-negative` |
 | `lookup`, `comparison`, `synthesis` | `anchors-reached` passes (no further check until cqa declares expected values) |
 | `attribution` | `cited` ⊇ `expected_citations`, and `cited` is not empty |
 | `closed-world-negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
@@ -136,18 +138,29 @@ questions, so a pass says the system reached and cited what the key
 asks for on each of them; it is too few to rank two systems that both
 pass. Until a retrieval budget lands (see the roadmap), retrieving far
 more than an answer needs costs nothing, which is how the baseline
-passes with precision as low as 0.02.
+passes questions with precision as low as 0.02.
 
 ### The baseline
 
 The baseline links words in the question to records by `rdfs:label`,
 expands each entry point by one hop of SPARQL lookup (both directions,
-named individuals only), and cites everything it retrieved. It asserts
-absence when the records the question named fall into more than one
-group that nothing joins. It reaches every anchor in wine's benchmark
-with precision between 0.02 and 0.18, which is the point: the benchmark
-is answerable by lookup alone, and a retriever that cannot beat those
-numbers has not added anything.
+named individuals only), and cites everything it retrieved. It reaches
+every anchor in wine's benchmark with precision between 0.02 and 0.18,
+which is the point: every record an answer needs can be found by lookup
+alone, and a retriever that cannot beat those numbers has not added
+anything.
+
+It never says "none on record", so it fails every closed-world negative
+(wine's cq-03, as above). A negative's claim is about particular records,
+and which records is written in the key, not the question. "Is Bordeaux a
+red or white wine?" links Bordeaux and white, nothing joins them, and the
+answer is still on record; "What is the best choice of wine for grilled
+meat?" names one record and the class Wine, no wine references the
+grilled meat, and that answer is on record too, in a pairing
+recommendation. A rule that read the claim from the question's words
+would say "none on record" for both. Whether a benchmark's negatives hold
+is shown against the graph by panschema's `verify --strict`; the baseline
+shows their anchors can be reached.
 
 It never reads the key. A test blanks every anchor and checks the
 attempts do not change.

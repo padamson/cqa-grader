@@ -11,10 +11,11 @@ benchmark's CI has something to grade.
 - `src/benchmark.rs` reads a `cqa:Benchmark` from Turtle (oxigraph, SPARQL).
 - `src/trace.rs` is the trace format, the contract with graded systems.
   `schemas/trace.schema.json` is generated from it and a test keeps them equal.
-- `src/grade.rs` scores a trace: three base checks plus one per answer kind.
+- `src/grade.rs` scores a trace: four base checks plus one per answer kind.
 - `src/baseline.rs` is the naive retriever: label linking, one-hop SPARQL
-  lookup, cites everything, asserts absence when the named records fall
-  into unjoined groups. It must never read the key; a test checks that.
+  lookup, cites everything, never asserts absence (which records a
+  negative is about is in the key, not the question). It must never read
+  the key; a test checks that.
 - `src/main.rs` is the CLI: `grade`, `baseline`, `trace-schema`.
 - `crates/site/` is the landing site (Leptos CSR, Trunk, Tailwind v4),
   outside the workspace (its own `[workspace]`; run cargo with

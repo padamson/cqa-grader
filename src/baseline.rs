@@ -15,10 +15,11 @@
 //!    graph.
 //! 3. **Cite** everything it retrieved.
 //!
-//! It asserts absence when the question named two or more records and no
-//! record joins them: no direct edge between any two, and no third record
-//! adjacent to both. That is the shape of cqa's own absence claim, checked
-//! against the graph rather than assumed.
+//! It never asserts absence. "None on record" is a claim about particular
+//! records, and which records is written in the key, not the question, so
+//! the baseline leaves every closed-world negative unanswered. Whether a
+//! benchmark's negatives hold is shown against the graph by panschema's
+//! `verify --strict`; the baseline shows that their anchors can be reached.
 //!
 //! None of this is a retrieval strategy anyone should ship. It exists so
 //! that `expected_anchors` can be shown reachable by lookup alone, and so
@@ -152,9 +153,7 @@ impl Baseline {
 
     /// Attempt one question.
     pub fn retrieve(&self, question_id: &str, question: &str, hops: usize) -> Result<Attempt> {
-        let (named, by_class) = self.link(question);
-
-        let mut retrieved: BTreeSet<String> = named.union(&by_class).cloned().collect();
+        let mut retrieved = self.link(question);
         let mut frontier = retrieved.clone();
         for _ in 0..hops {
             if frontier.is_empty() {
@@ -168,7 +167,7 @@ impl Baseline {
         Ok(Attempt {
             question: question_id.to_string(),
             cited: retrieved.clone(),
-            asserts_absence: self.unjoined(&named)?,
+            asserts_absence: false,
             retrieved,
             answer: None,
         })
@@ -176,9 +175,9 @@ impl Baseline {
 
     /// Entry points: records the question names, and instances of classes
     /// it names.
-    fn link(&self, question: &str) -> (BTreeSet<String>, BTreeSet<String>) {
+    fn link(&self, question: &str) -> BTreeSet<String> {
         let q_tokens = tokens(question);
-        let mut named = BTreeSet::new();
+        let mut entries = BTreeSet::new();
         for token in q_tokens
             .iter()
             .filter(|t| t.len() >= 4 && !STOPWORDS.contains(&t.as_str()))
@@ -194,16 +193,15 @@ impl Baseline {
                 .filter(|l| contains_phrase(&q_tokens, &l.tokens))
                 .collect();
             let chosen = if whole.is_empty() { candidates } else { whole };
-            named.extend(chosen.into_iter().map(|l| l.iri.clone()));
+            entries.extend(chosen.into_iter().map(|l| l.iri.clone()));
         }
-
-        let by_class = self
-            .classes
-            .iter()
-            .filter(|c| contains_phrase(&q_tokens, &c.tokens))
-            .flat_map(|c| c.instances.iter().cloned())
-            .collect();
-        (named, by_class)
+        entries.extend(
+            self.classes
+                .iter()
+                .filter(|c| contains_phrase(&q_tokens, &c.tokens))
+                .flat_map(|c| c.instances.iter().cloned()),
+        );
+        entries
     }
 
     /// Named individuals one edge away from any of `nodes`, either direction.
@@ -223,45 +221,6 @@ impl Baseline {
             ),
         )?;
         rows.into_iter().map(|r| r.require("n")).collect()
-    }
-
-    /// True when the named entry points fall into more than one group,
-    /// where two entries are in one group if a direct edge or a third
-    /// record adjacent to both joins them. "Seafood" may link both the
-    /// dish and a recommendation that names it; those two are one group,
-    /// and the question is whether the wine reaches that group.
-    fn unjoined(&self, named: &BTreeSet<String>) -> Result<bool> {
-        if named.len() < 2 {
-            return Ok(false);
-        }
-        let entries: Vec<&String> = named.iter().collect();
-        let mut neighbours: Vec<BTreeSet<String>> = Vec::with_capacity(entries.len());
-        for n in &entries {
-            neighbours.push(self.one_hop(&BTreeSet::from([(*n).clone()]))?);
-        }
-        // one_hop runs in both directions, so a direct edge shows in
-        // either entry's neighbours.
-        let n = entries.len();
-        let joined: Vec<(usize, usize)> = (0..n)
-            .flat_map(|i| (0..n).map(move |j| (i, j)))
-            .filter(|&(i, j)| {
-                neighbours[i].contains(entries[j].as_str())
-                    || !neighbours[i].is_disjoint(&neighbours[j])
-            })
-            .collect();
-        // Every joined pair takes the smaller of its two labels. A path is
-        // at most n records long, so n rounds carry a label along any of
-        // them; bounded loops, so no edit to them can spin.
-        let mut label: Vec<usize> = (0..n).collect();
-        for _ in 0..n {
-            for &(i, j) in &joined {
-                let low = label[i].min(label[j]);
-                label[i] = low;
-                label[j] = low;
-            }
-        }
-        let groups: BTreeSet<usize> = label.into_iter().collect();
-        Ok(groups.len() > 1)
     }
 }
 
@@ -338,36 +297,17 @@ mod tests {
         Baseline::from_turtle(&format!("{PREFIXES} {RECORDS} {triples}")).unwrap()
     }
 
-    const BOTH: &str = "Does Alpha pair with Bravo?";
-
     #[test]
-    fn two_named_records_with_nothing_between_them_are_unjoined() {
-        let a = graph("").retrieve("q", BOTH, 1).unwrap();
-        assert!(a.asserts_absence, "{a:?}");
-    }
-
-    #[test]
-    fn a_direct_edge_joins_two_named_records() {
-        let a = graph("ex:alpha ex:p ex:bravo .")
-            .retrieve("q", BOTH, 1)
-            .unwrap();
-        assert!(!a.asserts_absence, "{a:?}");
-    }
-
-    #[test]
-    fn a_record_adjacent_to_both_joins_them() {
-        let a = graph("ex:alpha ex:p ex:xray . ex:bravo ex:p ex:xray .")
-            .retrieve("q", BOTH, 1)
-            .unwrap();
-        assert!(!a.asserts_absence, "{a:?}");
-    }
-
-    #[test]
-    fn a_chain_of_named_records_is_one_group() {
-        // Alpha and Bravo share nothing, but each touches Xray, which the
-        // question also names.
-        let a = graph("ex:alpha ex:p ex:xray . ex:xray ex:p ex:bravo .")
-            .retrieve("q", "Does Alpha reach Bravo through Xray?", 0)
+    fn two_named_records_with_nothing_between_them_assert_nothing() {
+        // The shape of wine's cq-03, a real negative, and of cq-02, "Is
+        // Bordeaux a red or white wine?", which links Bordeaux and white,
+        // finds nothing joining them, and is answered on record. One named
+        // record and a class is no better: cq-04, "What is the best choice
+        // of wine for grilled meat?", names the grilled meat and the class
+        // Wine, no wine references the meat, and a pairing recommendation
+        // answers it. Only the key says which records a negative is about.
+        let a = graph("")
+            .retrieve("q", "Does Alpha pair with Bravo?", 1)
             .unwrap();
         assert!(!a.asserts_absence, "{a:?}");
     }
@@ -375,8 +315,8 @@ mod tests {
     #[test]
     fn a_split_graph_retrieves_like_the_whole() {
         // The records in one file, the class and every edge in the other,
-        // so linking by class, expansion, and the absence check each have
-        // to read across the split.
+        // so linking by class and expansion both have to read across the
+        // split.
         let edges = "ex:Colour a owl:Class ; rdfs:label \"Colour\" .
              ex:red a ex:Colour .
              ex:alpha ex:near ex:xray .
@@ -385,11 +325,7 @@ mod tests {
         let store = load_turtle(&format!("{PREFIXES} {RECORDS}")).unwrap();
         add_turtle(&store, &format!("{PREFIXES} {edges}")).unwrap();
         let split = Baseline::from_store(store).unwrap();
-        for (question, hops) in [
-            ("Tell me about Alpha.", 2),
-            ("Which colour is it?", 1),
-            (BOTH, 1),
-        ] {
+        for (question, hops) in [("Tell me about Alpha.", 2), ("Which colour is it?", 1)] {
             let expected = whole.retrieve("q", question, hops).unwrap();
             assert_eq!(
                 split.retrieve("q", question, hops).unwrap(),
@@ -416,12 +352,6 @@ mod tests {
             }
             other => panic!("expected File, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn one_named_record_asserts_nothing() {
-        let a = graph("").retrieve("q", "Tell me about Alpha.", 1).unwrap();
-        assert!(!a.asserts_absence, "{a:?}");
     }
 
     #[test]
