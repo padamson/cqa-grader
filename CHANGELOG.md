@@ -31,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - The landing page in `crates/site` (Leptos, Trunk, Tailwind v4, in the
   brand's board palette), with each roadmap item's criteria in a popover
   and `crates/site/preview.sh` to serve it locally.
+- An asbuilt architecture model of the repo in `docs/architecture/`,
+  checked in the pre-commit hook and CI, and rendered as the landing
+  page's Architecture section.
 - Test graphs generated from sibling checkouts through `panschema.toml`
   rather than vendored; CI clones the siblings and installs panschema
   from its main SHA.

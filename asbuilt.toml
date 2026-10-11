@@ -1,0 +1,44 @@
+# asbuilt surveys this repo into docs/architecture/model.c4. `asbuilt
+# check` runs in the pre-commit hook and in CI, so the model cannot drift
+# from the code without a red gate saying so.
+
+# The release every survey runs with: a model is only meaningful against
+# one, so any other refuses to run and names the install line. CI installs
+# from this pin (the padamson/asbuilt action reads it). A bump is this line,
+# the hook's `rev` in .pre-commit-config.yaml, the action's SHA in
+# .github/workflows/test.yml, and a re-survey, all in one commit.
+asbuilt = "0.3.0"
+
+[output]
+path = "docs/architecture/model.c4"
+
+[docs]
+# The tree is the landing site's Architecture section, mounted at
+# architecture/ in every version snapshot: the crumbs read
+# cqa-grader / Architecture / <crate>, and the first one links back to the
+# snapshot root, relative so it holds under /dev/ and /vX.Y.Z/.
+title = "Architecture"
+home_url = "../"
+home_title = "cqa-grader"
+source_url = "https://github.com/padamson/cqa-grader/blob/main/"
+# The site's page colors, served from the snapshot root beside the tree
+# (crates/site/architecture.css, copied there by Trunk).
+stylesheet = "../architecture.css"
+# The landing site is dark-only, so the tree opens dark to match; the
+# System / Light / Dark control in every page's header still lets a
+# visitor change it.
+color_scheme = "dark"
+
+# The brand's two palettes on every element kind: paper and red pen on a
+# light page, chalk and slate on the board in the dark. The rendered SVG
+# files use the light set.
+[theme]
+component = { light = "#ffffff", dark = "#243832" }
+container = { light = "#c0392b", dark = "#3a554c" }
+bin = { light = "#f3d9d4", dark = "#4a3f1f" }
+tests = { light = "#eef1f5", dark = "#1f2f29" }
+
+[rust]
+# The landing site lives in the repo but outside the workspace, with its
+# own lockfile (wasm32, a big tree). It is still part of the architecture.
+extra_manifests = ["crates/site/Cargo.toml"]

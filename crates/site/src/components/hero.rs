@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 use super::icons::{self, Icon};
-use crate::links::{CI_BADGE, CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB};
+use crate::links::{ARCHITECTURE, CI_BADGE, CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB};
 
 const BUTTON: &str = "inline-flex items-center gap-2 rounded-lg border border-board-600 px-5 py-2.5 font-semibold text-chalk-50 transition hover:border-chalk-yellow";
 
@@ -68,12 +68,15 @@ pub fn Hero() -> impl IntoView {
             </div>
 
             <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+                // The architecture pages asbuilt generates from this repo, under
+                // architecture/ in every snapshot.
                 <a
-                    id="cta-start"
-                    href="#install"
+                    id="cta-architecture"
+                    href=ARCHITECTURE
                     class="inline-flex items-center gap-2 rounded-lg bg-chalk-yellow px-5 py-2.5 font-semibold text-board-900 transition hover:bg-chalk-50"
                 >
-                    "Get started"
+                    <Icon path=icons::ASBUILT/>
+                    "See cqa-grader's architecture"
                 </a>
                 <a id="cta-github" href=GITHUB class=BUTTON>
                     <Icon path=icons::GITHUB/>

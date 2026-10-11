@@ -27,9 +27,11 @@ binary (see `Trunk.toml`), so there is no Node dependency.
 crates/site/preview.sh
 ```
 
-`preview.sh` builds the site and `trunk serve`s it with hot reload at
-`http://127.0.0.1:8080`. Plain `trunk serve --open` from this directory
-does the same.
+`preview.sh` writes the architecture section with `asbuilt docs` (after
+`asbuilt check`, so a stale model stops it), builds the site, and `trunk
+serve`s it with hot reload at `http://127.0.0.1:8080`. It needs asbuilt
+at the release `asbuilt.toml` pins, Node and Graphviz. Plain `trunk serve
+--open` from this directory works too, without the architecture pages.
 
 ## Build
 
@@ -61,6 +63,8 @@ build.rs                highlights snippets/ with syntect at build time; SITE_VE
 snippets/               code samples, one file per language
 public/roadmap.json     the roadmap; main's copy is the one every version fetches
 public/receipts/        written by the dogfood test (ignored, .gitkeep tracked)
+public/architecture/    written by `asbuilt docs` (ignored, .gitkeep tracked)
+architecture.css        the architecture pages' palette, linked from the tree
 deploy/update-manifest.sh   versions.json and the root redirect for the gh-pages tree
 src/version.rs          SITE_VERSION, is_dev(), SITE_PREFIX, and the URL helpers
 src/roadmap.rs          the roadmap's types and the tests that hold the file to them

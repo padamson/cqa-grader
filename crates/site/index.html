@@ -19,9 +19,14 @@
     <meta property="og:url" content="https://padamson.github.io/cqa-grader/" />
     <meta name="twitter:card" content="summary" />
     <link data-trunk rel="tailwind-css" href="input.css" />
-    <!-- Receipts, written by the dogfood test. Copied on every build, so
-         they survive `trunk serve` rebuilds. -->
+    <!-- Receipts (written by the dogfood test) and the architecture tree
+         (written by `asbuilt docs`). Copied on every build, so they
+         survive `trunk serve` rebuilds. -->
     <link data-trunk rel="copy-dir" href="public/receipts" />
+    <link data-trunk rel="copy-dir" href="public/architecture" />
+    <!-- The architecture pages' palette, linked from the tree as
+         ../architecture.css (`[docs] stylesheet` in asbuilt.toml). -->
+    <link data-trunk rel="copy-file" href="architecture.css" />
     <!-- The roadmap's data, at the build's root: the dev build's copy is
          the current roadmap every version fetches (src/roadmap.rs). -->
     <link data-trunk rel="copy-file" href="public/roadmap.json" />

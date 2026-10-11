@@ -1,5 +1,7 @@
 //! Where the page links to, in one place.
 
+/// The architecture pages `asbuilt docs` writes, relative to the snapshot.
+pub const ARCHITECTURE: &str = "architecture/";
 pub const GITHUB: &str = "https://github.com/padamson/cqa-grader";
 pub const ISSUES: &str = "https://github.com/padamson/cqa-grader/issues";
 pub const CHANGELOG: &str = "https://github.com/padamson/cqa-grader/blob/main/CHANGELOG.md";
@@ -12,4 +14,5 @@ pub const CRATES_IO: &str = "https://crates.io/crates/cqa-grader";
 pub const DOCS_RS: &str = "https://docs.rs/cqa-grader";
 pub const CQA_SCHEMA: &str = "https://github.com/padamson/cqa-schema";
 pub const WINE: &str = "https://github.com/padamson/ontology-authoring-template";
+pub const ASBUILT: &str = "https://padamson.github.io/asbuilt/";
 pub const PLAYWRIGHT_RUST: &str = "https://playwright-rust.dev";

@@ -1,0 +1,11 @@
+/* The architecture pages (the asbuilt docs tree under architecture/) in
+   this site's palette: ink and red pen on paper in the light, chalk on the
+   board in the dark. Linked by `[docs] stylesheet` in asbuilt.toml after
+   the tree's own stylesheets, so it restates the page tokens, which the
+   diagrams' group boxes and labels follow, and gives the edges a quiet
+   slate. The colors are brand/palette.css's; change them there first. */
+:root { --bg: #fbf8ef; --fg: #1f2a44; --muted: #5a6478; --accent: #c0392b; --rule: #dfe7f1; --code: #eef1f5; --c4-edge: #8a93a6; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #1b2a24; --fg: #f3f1e8; --muted: #b9c4bd; --accent: #f2d16b; --rule: #3a554c; --code: #243832; --c4-edge: #6f8a80; }
+}
+:root[data-theme="dark"] { --bg: #1b2a24; --fg: #f3f1e8; --muted: #b9c4bd; --accent: #f2d16b; --rule: #3a554c; --code: #243832; --c4-edge: #6f8a80; }

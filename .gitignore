@@ -4,6 +4,11 @@
 /crates/site/dist
 /crates/site/public/receipts/*
 !/crates/site/public/receipts/.gitkeep
+# The architecture tree `asbuilt docs` writes for the landing site, and the
+# rendered views: build output. model.c4 is the source of truth.
+/crates/site/public/architecture/*
+!/crates/site/public/architecture/.gitkeep
+/docs/architecture/views/
 
 # cargo-mutants output (current run + rotated previous run)
 /mutants.out/

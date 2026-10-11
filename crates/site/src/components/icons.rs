@@ -24,6 +24,11 @@ pub const TICK: &str = "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
 pub const BOX: &str =
     "M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z";
 
+// asbuilt's mark (its brand/mark.path, brand version 3), on the button to
+// the architecture pages asbuilt generates: a telescope sighting over a
+// graduated arc.
+pub const ASBUILT: &str = "M14.24 3.21L17.61 1.26L21.97 8.81L18.6 10.76zM3.06 11.38L15.28 4.33L18.15 9.3L5.93 16.36zM1 13.77L3.88 12.1L5.71 15.29L2.84 16.96zM20.65 13.45A10.32 10.32 0 0 1 17.16 18.37L15.06 15.65A6.88 6.88 0 0 0 17.39 12.37zM14.78 19.74A10.32 10.32 0 0 1 6.06 19.34L7.65 16.29A6.88 6.88 0 0 0 13.47 16.57zM17.95 12.13L23 14.59L21.8 17.07L16.75 14.6zM9.67 17.46L7.76 22.74L5.16 21.8L7.09 16.52zM10.36 10.49L11.79 12.97L12.78 12.4L11.35 9.91zM13.31 11.7L18.47 20.64L17.77 21.04L12.61 12.1zM11.62 12.68L16.78 21.61L16.08 22.01L10.92 13.08zM18.07 19.94L18.47 20.64L16.08 22.01L15.68 21.31z";
+
 // The cqa-grader mark from brand/, the repo's one source for it: a check
 // mark whose strokes are graph edges, ending on the anchor an answer had
 // to reach.

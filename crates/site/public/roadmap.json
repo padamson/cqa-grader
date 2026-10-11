@@ -63,23 +63,6 @@
       ]
     },
     {
-      "id": "roadmap-now-site",
-      "title": "This page",
-      "blurb": "The landing page, its roadmap and these criteria, deployed from main and tested in a browser before every deploy.",
-      "horizon": "now",
-      "acceptance": [
-        {
-          "criterion": "Every criterion of a done item names a test that exists",
-          "test": "crates/site/src/roadmap.rs::every_done_criterion_names_a_test_that_exists"
-        },
-        {
-          "criterion": "An item's criteria open from the item and close again",
-          "test": "crates/site-e2e/tests/landing_page.rs::roadmap_criteria_open_and_close"
-        }
-      ],
-      "status": "in-progress"
-    },
-    {
       "id": "roadmap-next-budget",
       "title": "A retrieval budget",
       "blurb": "Recall within a budget of retrieved records, so retrieving the whole graph no longer passes. The budget may belong to the benchmark rather than the grader.",
