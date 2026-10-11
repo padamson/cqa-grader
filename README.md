@@ -73,6 +73,10 @@ student to grade:
 cqa-grader baseline --graph wine.ttl --benchmark wine-benchmark.ttl --output trace.json
 ```
 
+A graph published as several files (one Turtle file per dataset, say) takes
+one `--graph` per file. They load into one store, so there is no need to
+concatenate them first.
+
 Print the JSON Schema for the trace format:
 
 ```bash

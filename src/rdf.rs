@@ -1,6 +1,7 @@
 //! The SPARQL plumbing the benchmark reader and the baseline share.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use oxigraph::io::RdfFormat;
 use oxigraph::model::Term;
@@ -12,10 +13,33 @@ use crate::{Error, Result};
 /// An in-memory store holding the Turtle text.
 pub(crate) fn load_turtle(turtle: &str) -> Result<Store> {
     let store = Store::new().map_err(Error::rdf)?;
+    add_turtle(&store, turtle)?;
+    Ok(store)
+}
+
+/// An in-memory store holding every Turtle file, as one graph. A file
+/// that fails to read or parse is named in the error.
+pub(crate) fn load_turtle_files<P: AsRef<Path>>(
+    paths: impl IntoIterator<Item = P>,
+) -> Result<Store> {
+    let store = Store::new().map_err(Error::rdf)?;
+    for path in paths {
+        let path = path.as_ref();
+        let load = || add_turtle(&store, &std::fs::read_to_string(path)?);
+        load().map_err(|e| Error::File {
+            path: path.to_owned(),
+            source: Box::new(e),
+        })?;
+    }
+    Ok(store)
+}
+
+/// Add Turtle text to a store. Blank-node labels stay local to the text,
+/// as Turtle scopes them, so two files that both say `_:b0` do not merge.
+pub(crate) fn add_turtle(store: &Store, turtle: &str) -> Result<()> {
     store
         .load_from_slice(RdfFormat::Turtle, turtle)
-        .map_err(Error::rdf)?;
-    Ok(store)
+        .map_err(Error::rdf)
 }
 
 /// One SPARQL solution, with every IRI and literal flattened to a string.

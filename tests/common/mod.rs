@@ -16,3 +16,8 @@ pub fn fixture_path(name: &str) -> PathBuf {
     );
     path
 }
+
+/// A committed fixture's text.
+pub fn fixture_text(name: &str) -> String {
+    std::fs::read_to_string(fixture_path(name)).unwrap()
+}

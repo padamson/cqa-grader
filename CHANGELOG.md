@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   lookup, cites everything, asserts absence over unjoined groups. Passes
   wine's six-question benchmark.
 - CLI: `cqa-grader grade`, `cqa-grader baseline`, `cqa-grader trace-schema`.
+- `baseline --graph` can repeat, for a graph published as several files.
+  Every file loads into one store (`Baseline::from_paths`), and a file that
+  fails to read or parse is named in the error.
 - Unusable input is refused with exit code 2 rather than graded: a
   benchmark question missing its id, text or ground truth, two questions
   sharing an id, a closed-world negative with no unconnected anchors, a

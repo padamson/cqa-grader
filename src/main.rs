@@ -32,9 +32,11 @@ enum Command {
     },
     /// Run the naive baseline retriever over a graph and write its trace.
     Baseline {
-        /// The target graph's published Turtle artifact (schema plus instances).
-        #[arg(long)]
-        graph: PathBuf,
+        /// The target graph's published Turtle artifact (schema plus
+        /// instances). Repeat for a graph published as several files; they
+        /// load into one store.
+        #[arg(long, required = true)]
+        graph: Vec<PathBuf>,
         /// The benchmark whose questions to attempt. Only question text is read.
         #[arg(long)]
         benchmark: PathBuf,
@@ -101,8 +103,7 @@ fn run() -> Result<ExitCode> {
         } => {
             let b = Benchmark::from_path(&benchmark)
                 .with_context(|| format!("reading benchmark {}", benchmark.display()))?;
-            let retriever = Baseline::from_path(&graph)
-                .with_context(|| format!("reading graph {}", graph.display()))?;
+            let retriever = Baseline::from_paths(&graph).context("reading the graph")?;
             let trace = retriever.run(&b, hops)?;
             match output {
                 Some(path) => trace

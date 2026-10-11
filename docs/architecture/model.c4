@@ -254,7 +254,7 @@ to know that: every other asset path is relative.'
   }
 
   cqa_grader.baseline -[names]-> cqa_grader.benchmark 'Benchmark'
-  cqa_grader.baseline -[calls]-> cqa_grader.rdf 'load_turtle, select'
+  cqa_grader.baseline -[calls]-> cqa_grader.rdf 'load_turtle, load_turtle_files, select'
   cqa_grader.baseline -[constructs]-> cqa_grader.trace 'Attempt, System, Trace'
   cqa_grader.benchmark -[calls]-> cqa_grader.rdf 'load_turtle, select'
   cqa_grader.cqa_grader -[constructs]-> cqa_grader.baseline 'Baseline'

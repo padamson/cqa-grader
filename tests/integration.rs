@@ -4,9 +4,7 @@ use cqa_grader::{AnswerKind, Baseline, Benchmark, grade};
 
 mod common;
 
-fn fixture(name: &str) -> String {
-    std::fs::read_to_string(common::fixture_path(name)).unwrap()
-}
+use common::fixture_text as fixture;
 
 fn wine() -> (Benchmark, Baseline) {
     (

@@ -31,6 +31,7 @@
       "title": "Grade a graph published as several files",
       "blurb": "baseline --graph can repeat, so a schema that publishes one Turtle file per dataset no longer has to be concatenated first.",
       "horizon": "now",
+      "status": "done",
       "acceptance": [
         {
           "criterion": "--graph may be given more than once, and every file loads into one store",

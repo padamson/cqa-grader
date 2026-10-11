@@ -25,12 +25,13 @@
 //! that a real retriever has a precision floor to clear.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use oxigraph::store::Store;
 
 use crate::Result;
 use crate::benchmark::Benchmark;
-use crate::rdf::{load_turtle, select};
+use crate::rdf::{load_turtle, load_turtle_files, select};
 use crate::trace::{Attempt, System, Trace};
 
 /// Words that never link a question to a record on their own.
@@ -42,7 +43,8 @@ const STOPWORDS: &[&str] = &[
     "what", "when", "where", "which", "while", "with", "would", "your",
 ];
 
-/// The naive retriever, over one loaded graph.
+/// The naive retriever, over one loaded graph (which may have come from
+/// several files).
 pub struct Baseline {
     store: Store,
     /// Named individuals, with their label's normalized tokens.
@@ -62,18 +64,23 @@ struct Class {
 }
 
 impl Baseline {
-    /// Load a graph from a Turtle file.
-    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Self> {
-        let text = std::fs::read_to_string(path)?;
-        Self::from_turtle(&text)
+    /// Load a graph from one or more Turtle files, into one store. A graph
+    /// published one file per dataset is read as the union of its files.
+    /// The T-box triples each file repeats are a set and load once, except
+    /// blank-node structure (restrictions, lists), which loads once per
+    /// file; no blank node is ever a record, so retrieval is unchanged.
+    pub fn from_paths<P: AsRef<Path>>(paths: impl IntoIterator<Item = P>) -> Result<Self> {
+        Self::from_store(load_turtle_files(paths)?)
     }
 
     /// Load a graph from Turtle text. Records are whatever is declared an
     /// `owl:NamedIndividual` with an `rdfs:label`, which is how panschema
     /// emits instance data.
     pub fn from_turtle(turtle: &str) -> Result<Self> {
-        let store = load_turtle(turtle)?;
+        Self::from_store(load_turtle(turtle)?)
+    }
 
+    fn from_store(store: Store) -> Result<Self> {
         let mut individuals = Vec::new();
         for row in select(
             &store,
@@ -295,6 +302,8 @@ fn contains_phrase(haystack: &[String], needle: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Error;
+    use crate::rdf::add_turtle;
 
     #[test]
     fn tokens_lowercase_split_and_singularize() {
@@ -316,18 +325,17 @@ mod tests {
         assert_eq!(tokens("ribs"), ["ribs"]);
     }
 
+    const PREFIXES: &str = "@prefix owl: <http://www.w3.org/2002/07/owl#> .
+         @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+         @prefix ex: <http://example.org/> .";
+
+    const RECORDS: &str = "ex:alpha a owl:NamedIndividual ; rdfs:label \"Alpha\" .
+         ex:bravo a owl:NamedIndividual ; rdfs:label \"Bravo\" .
+         ex:xray a owl:NamedIndividual ; rdfs:label \"Xray\" .
+         ex:red a owl:NamedIndividual ; rdfs:label \"Red\" .";
+
     fn graph(triples: &str) -> Baseline {
-        Baseline::from_turtle(&format!(
-            "@prefix owl: <http://www.w3.org/2002/07/owl#> .
-             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-             @prefix ex: <http://example.org/> .
-             ex:alpha a owl:NamedIndividual ; rdfs:label \"Alpha\" .
-             ex:bravo a owl:NamedIndividual ; rdfs:label \"Bravo\" .
-             ex:xray a owl:NamedIndividual ; rdfs:label \"Xray\" .
-             ex:red a owl:NamedIndividual ; rdfs:label \"Red\" .
-             {triples}"
-        ))
-        .unwrap()
+        Baseline::from_turtle(&format!("{PREFIXES} {RECORDS} {triples}")).unwrap()
     }
 
     const BOTH: &str = "Does Alpha pair with Bravo?";
@@ -362,6 +370,52 @@ mod tests {
             .retrieve("q", "Does Alpha reach Bravo through Xray?", 0)
             .unwrap();
         assert!(!a.asserts_absence, "{a:?}");
+    }
+
+    #[test]
+    fn a_split_graph_retrieves_like_the_whole() {
+        // The records in one file, the class and every edge in the other,
+        // so linking by class, expansion, and the absence check each have
+        // to read across the split.
+        let edges = "ex:Colour a owl:Class ; rdfs:label \"Colour\" .
+             ex:red a ex:Colour .
+             ex:alpha ex:near ex:xray .
+             ex:xray ex:near ex:red .";
+        let whole = graph(edges);
+        let store = load_turtle(&format!("{PREFIXES} {RECORDS}")).unwrap();
+        add_turtle(&store, &format!("{PREFIXES} {edges}")).unwrap();
+        let split = Baseline::from_store(store).unwrap();
+        for (question, hops) in [
+            ("Tell me about Alpha.", 2),
+            ("Which colour is it?", 1),
+            (BOTH, 1),
+        ] {
+            let expected = whole.retrieve("q", question, hops).unwrap();
+            assert_eq!(
+                split.retrieve("q", question, hops).unwrap(),
+                expected,
+                "{question:?} at {hops} hops"
+            );
+        }
+        // Not vacuous: the edges in the second file carry Alpha two hops.
+        let a = split.retrieve("q", "Tell me about Alpha.", 2).unwrap();
+        assert!(a.retrieved.contains("http://example.org/red"), "{a:?}");
+    }
+
+    #[test]
+    fn a_missing_graph_file_is_named() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let missing = root.join("no-such-graph.ttl");
+        let err = Baseline::from_paths([root.join("wine.ttl"), missing.clone()])
+            .err()
+            .expect("a missing file must not load");
+        match err {
+            Error::File { path, source } => {
+                assert_eq!(path, missing);
+                assert!(matches!(*source, Error::Io(_)), "{source:?}");
+            }
+            other => panic!("expected File, got {other:?}"),
+        }
     }
 
     #[test]

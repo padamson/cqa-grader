@@ -55,6 +55,15 @@ pub enum Error {
     /// A trace or report could not be (de)serialized.
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
+    /// One of several input files failed to read or load. The cause is
+    /// the error's source, so it is not repeated in this message.
+    #[error("{}", path.display())]
+    File {
+        /// The file that failed.
+        path: std::path::PathBuf,
+        /// Why it failed.
+        source: Box<Error>,
+    },
 }
 
 /// `Result` with this crate's [`Error`].
