@@ -1,0 +1,34 @@
+/* The cqa-grader wordmark: CQA in the sketch face, set in the accent, then
+   grader in Cabin Bold, with no space between. The accent is
+   --brand-accent, chalk-yellow (#f2d16b) when the host sets none; on a
+   light page set it to red-pen (#c0392b). Font URLs are relative to the
+   built stylesheet: copy fonts/ beside it. The sketch face holds only C,
+   Q and A. Markup:
+
+     <span class="wordmark"><span class="wordmark-cqa">CQA</span><span class="wordmark-grader">grader</span></span> */
+
+@font-face {
+  font-family: "CQA Wordmark Sketch";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/cqa-wordmark-sketch.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cabin";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("fonts/cabin-latin.woff2") format("woff2");
+}
+
+.wordmark {
+  font-family: "Cabin", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.wordmark-cqa {
+  font-family: "CQA Wordmark Sketch", "Cabin", system-ui, sans-serif;
+  color: var(--brand-accent, #f2d16b);
+}

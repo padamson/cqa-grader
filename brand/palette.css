@@ -1,0 +1,20 @@
+/* The cqa-grader palette. Dark is chalk on a board, the landing site's
+   ground; light is red pen on paper, for white pages. Pass and fail are
+   never told apart by hue alone: each carries a tick or a cross. */
+
+:root {
+  /* board (dark) */
+  --color-board-900: #1b2a24;
+  --color-board-800: #243832;
+  --color-board-600: #3a554c;
+  --color-chalk-50: #f3f1e8;
+  --color-chalk-yellow: #f2d16b; /* accent */
+  --color-chalk-blue: #9ccbe8; /* links, ok */
+  --color-chalk-pink: #f2a08e; /* fail */
+
+  /* paper (light) */
+  --color-paper: #fbf8ef;
+  --color-rule-line: #dfe7f1;
+  --color-ink: #1f2a44;
+  --color-red-pen: #c0392b; /* accent */
+}

@@ -1,4 +1,13 @@
-# cqa-grader
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/lockup-dark.svg">
+    <img src="brand/lockup-light.svg" width="360" alt="cqa-grader">
+  </picture>
+</h1>
+
+<p align="center">
+  <a href="https://github.com/padamson/cqa-grader/actions?query=branch%3Amain"><img src="https://img.shields.io/github/check-runs/padamson/cqa-grader/main?label=CI&amp;logo=github" alt="CI"></a>
+</p>
 
 Grades what a system did with a competency question against the
 [cqa](https://github.com/padamson/cqa-schema) benchmark that specifies

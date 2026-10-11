@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   sharing an id, a closed-world negative with no unconnected anchors, a
   trace field the format does not define, or two attempts at one
   question.
+- The brand in `brand/`: the mark, the CQAgrader wordmark, the board and
+  paper palette, and their fonts, with `scripts/gen-brand.py` to
+  regenerate them. The lockup heads the README.
 - Test graphs generated from sibling checkouts through `panschema.toml`
   rather than vendored; CI clones the siblings and installs panschema
   from its main SHA.
