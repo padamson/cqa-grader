@@ -1,0 +1,136 @@
+{
+  "milestone": "0.1.0",
+  "next_milestone": "0.2.0",
+  "themes": {
+    "0.1.0": "Graphs as they are published",
+    "0.2.0": "A pass that means something"
+  },
+  "items": [
+    {
+      "id": "roadmap-now-false-absence",
+      "title": "False absence fails",
+      "blurb": "Saying \"none on record\" for a question whose answer is on record fails the attempt, and the baseline stops doing it.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "An attempt that asserts absence on a question that is not a closed-world negative fails",
+          "test": "src/grade.rs::absence_asserted_on_a_positive_question_fails"
+        },
+        {
+          "criterion": "The baseline asserts absence only on wine's closed-world negative",
+          "test": "tests/integration.rs::the_baseline_asserts_absence_only_where_nothing_joins"
+        },
+        {
+          "criterion": "The baseline still passes every question in wine's benchmark",
+          "test": "tests/integration.rs::the_baseline_passes_the_wine_benchmark"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-graphs",
+      "title": "Several graph files, one store",
+      "blurb": "baseline --graph repeats, so a schema that publishes one Turtle file per dataset is graded without concatenating them first.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "--graph may be given more than once, and every file loads into one store",
+          "test": "tests/cli.rs::baseline_reads_every_graph_given"
+        },
+        {
+          "criterion": "A graph split across files retrieves the same as the whole",
+          "test": "src/baseline.rs::a_split_graph_retrieves_like_the_whole"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-one-anchor",
+      "title": "One-anchor absence in the baseline",
+      "blurb": "When a question names one record and a class, and no instance of that class is adjacent to the record, the baseline says none on record.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "Absence is asserted when the question names one record and a class with no instance adjacent to it",
+          "test": "src/baseline.rs::one_record_and_a_class_with_nothing_adjacent_is_absence"
+        },
+        {
+          "criterion": "Absence is not asserted when an instance of the class is adjacent",
+          "test": "src/baseline.rs::an_adjacent_instance_of_the_class_is_not_absence"
+        },
+        {
+          "criterion": "The baseline still never reads the key",
+          "test": "tests/integration.rs::the_baseline_never_reads_the_key"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-now-site",
+      "title": "This page",
+      "blurb": "The landing page, its roadmap and these criteria, deployed from main and tested in a browser before every deploy.",
+      "horizon": "now",
+      "acceptance": [
+        {
+          "criterion": "Every criterion of a done item names a test that exists",
+          "test": "crates/site/src/roadmap.rs::every_done_criterion_names_a_test_that_exists"
+        },
+        {
+          "criterion": "An item's criteria open from the item and close again",
+          "test": "crates/site-e2e/tests/landing_page.rs::roadmap_criteria_open_and_close"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-next-budget",
+      "title": "A retrieval budget",
+      "blurb": "Recall within a budget of retrieved records, so retrieving the whole graph no longer passes. The budget may belong to the benchmark rather than the grader.",
+      "horizon": "next",
+      "acceptance": [
+        {
+          "criterion": "An attempt that retrieves more than the budget fails anchors-reached",
+          "test": "src/grade.rs::an_attempt_over_budget_fails"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-next-citation-precision",
+      "title": "Citation precision",
+      "blurb": "Citing everything retrieved no longer passes attribution.",
+      "horizon": "next",
+      "acceptance": [
+        {
+          "criterion": "Attribution fails when the share of citations the key expects is under the floor",
+          "test": "src/grade.rs::citing_everything_fails_attribution"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-next-model",
+      "title": "Benchmarks read through the LinkML model",
+      "blurb": "The key is read from its YAML against the cqa schema through panschema's model crate, not round-tripped through Turtle.",
+      "horizon": "next",
+      "acceptance": [
+        {
+          "criterion": "The YAML and Turtle readers give the same benchmark for wine",
+          "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-later-evidence-sets",
+      "title": "Alternative evidence sets",
+      "blurb": "More than one set of records that can support an answer, once cqa can declare them; any one set satisfies the anchors.",
+      "horizon": "later"
+    },
+    {
+      "id": "roadmap-later-traversal",
+      "title": "Baseline traversal through panschema",
+      "blurb": "The baseline expands entry points with panschema's subgraph primitive, and oxigraph leaves the grading path.",
+      "horizon": "later"
+    },
+    {
+      "id": "roadmap-later-judge",
+      "title": "Judging the answer",
+      "blurb": "The second tier: the prose answer judged against ground_truth, behind a flag and out of CI.",
+      "horizon": "later"
+    }
+  ]
+}

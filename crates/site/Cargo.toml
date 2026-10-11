@@ -1,0 +1,19 @@
+# Standalone (its own `[workspace]` table): the landing site, not part of
+# the published crate. Today it holds the roadmap's types and their tests;
+# the page itself (Leptos CSR, built by Trunk) follows. Run cargo here with
+# `--manifest-path crates/site/Cargo.toml`.
+[package]
+name = "cqa-grader-site"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+authors = ["Paul Adamson"]
+repository = "https://github.com/padamson/cqa-grader"
+publish = false
+
+[workspace]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

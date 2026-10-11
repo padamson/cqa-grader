@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - The brand in `brand/`: the mark, the CQAgrader wordmark, the board and
   paper palette, and their fonts, with `scripts/gen-brand.py` to
   regenerate them. The lockup heads the README.
+- The roadmap as data in `crates/site/public/roadmap.json`: Now, Next and Later,
+  each Now and Next item with acceptance criteria that name the test
+  proving them, held to its types and to existing tests by the site
+  crate's own tests and CI job.
 - Test graphs generated from sibling checkouts through `panschema.toml`
   rather than vendored; CI clones the siblings and installs panschema
   from its main SHA.

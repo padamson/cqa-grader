@@ -1,5 +1,6 @@
 # Build artifacts
 /target
+/crates/site/target
 
 # cargo-mutants output (current run + rotated previous run)
 /mutants.out/

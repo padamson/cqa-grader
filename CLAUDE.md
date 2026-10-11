@@ -16,6 +16,14 @@ benchmark's CI has something to grade.
   lookup, cites everything, asserts absence when the named records fall
   into unjoined groups. It must never read the key; a test checks that.
 - `src/main.rs` is the CLI: `grade`, `baseline`, `trace-schema`.
+- `crates/site/` is the landing site, outside the workspace (its own
+  `[workspace]`; run cargo with `--manifest-path crates/site/Cargo.toml`). Today
+  it holds `public/roadmap.json` and its types. Each Now and Next item
+  lists acceptance criteria, each naming its proving test as
+  `<path>::<function>`; a test fails if a done item names a test that
+  does not exist. Move an item in the commit that does its work.
+- `brand/` is the mark, wordmark, palette and fonts; `scripts/gen-brand.py`
+  regenerates them.
 
 ## Test graphs are generated, not vendored
 

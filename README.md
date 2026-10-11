@@ -117,6 +117,13 @@ attempt. Recall of one is what `anchors-reached` requires. Precision is
 never required; it is where a real retriever separates itself from the
 baseline.
 
+A benchmark here is a test suite, not a leaderboard. Wine's has six
+questions, so a pass says the system reached and cited what the key
+asks for on each of them; it is too few to rank two systems that both
+pass. Until a retrieval budget lands (see the roadmap), retrieving far
+more than an answer needs costs nothing, which is how the baseline
+passes with precision as low as 0.02.
+
 ### The baseline
 
 The baseline links words in the question to records by `rdfs:label`,
