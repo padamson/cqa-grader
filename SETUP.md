@@ -13,13 +13,13 @@ After creating a repo from this template, complete these steps.
 
 ## Search and replace
 
-- [ ] Replace `my-project` with your project name in `Cargo.toml`, `README.md`, and `CLAUDE.md`
-- [ ] Replace `OWNER/REPO` with your GitHub path in `Cargo.toml` and `CHANGELOG.md`
-- [ ] Replace `Your Name` with your name in `Cargo.toml`
-- [ ] Update `description`, `categories`, and `keywords` in `Cargo.toml`
-- [ ] Update `README.md` with your project description and usage
-- [ ] Update `CLAUDE.md` with project-specific context
-- [ ] Strip `<!-- Template users: ... -->` and similar meta-comments from `README.md` and `CLAUDE.md` after the placeholder substitutions
+- [x] Replace `my-project` with your project name in `Cargo.toml`, `README.md`, and `CLAUDE.md`
+- [x] Replace `OWNER/REPO` with your GitHub path in `Cargo.toml` and `CHANGELOG.md`
+- [x] Replace `Your Name` with your name in `Cargo.toml`
+- [x] Update `description`, `categories`, and `keywords` in `Cargo.toml`
+- [x] Update `README.md` with your project description and usage
+- [x] Update `CLAUDE.md` with project-specific context
+- [x] Strip `<!-- Template users: ... -->` and similar meta-comments from `README.md` and `CLAUDE.md` after the placeholder substitutions
 
 ## GitHub Settings (manual)
 

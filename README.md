@@ -1,46 +1,158 @@
-<!-- Replace "Project Name" with your project name. -->
-# Project Name
+# cqa-grader
 
-<!-- Replace this line with a one-sentence description of your project. -->
+Grades what a system did with a competency question against the
+[cqa](https://github.com/padamson/cqa-schema) benchmark that specifies
+the correct answer.
 
-<!--
-Template users: after creating your repo from this template, see SETUP.md
-for the full onboarding checklist. At minimum, replace every occurrence of
-`my-project` and `Project Name` throughout this file, and update
-`Cargo.toml` (name, description, repository, authors, keywords, categories).
--->
+A cqa benchmark pairs each question with the records a correct answer
+must reach (`expected_anchors`), the records it must rest on
+(`expected_citations`), the kinds of answering it calls for
+(`answer_kind`), and the answer in prose (`ground_truth`). The graph's
+own repository publishes the benchmark as a Turtle file. This tool reads
+that file, reads a *trace* of what some system retrieved and cited for
+each question, and scores one against the other. The trace is the
+contract: a system emits one, and nothing about how it produced it
+crosses into the grader.
+
+Two tiers were always the plan. The deterministic tier is here: anchors
+reached, citations grounded and rested on, absence asserted where the key
+claims one. It needs no model and runs in CI. Judging a prose answer
+against `ground_truth` needs a judge and is not built yet; the trace
+carries an `answer` field for when it is.
 
 ## Installation
 
-<!-- Replace `my-project` with your crate name. -->
 ```bash
-cargo install my-project
+cargo install cqa-grader
 ```
 
 ## Usage
 
-<!-- Replace `my-project` with your binary name, or replace this section
-     entirely with library usage examples if this is a library crate. -->
+Grade a trace against a benchmark. Exit code 0 means every question
+passed, 1 means at least one failed, 2 means the inputs were unusable.
+
 ```bash
-my-project --help
+cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json
+cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --format json --report report.json
+```
+
+```text
+wine-benchmark: grading cqa-grader baseline 0.1.0
+  cq-02 lookup                  ok    recall 1.00  precision 0.02  retrieved 46
+  cq-03 closed-world-negative   ok    recall 1.00  precision 0.18  retrieved 11
+  cq-04 attribution             ok    recall 1.00  precision 0.06  retrieved 47
+  cq-05 synthesis               ok    recall 1.00  precision 0.13  retrieved 47
+  cq-06 comparison              ok    recall 1.00  precision 0.09  retrieved 46
+  cq-07 comparison+attribution  ok    recall 1.00  precision 0.17  retrieved 23
+6 questions: 6 passed, 0 failed
+```
+
+Run the naive baseline retriever over a graph, so a benchmark's CI has a
+student to grade:
+
+```bash
+cqa-grader baseline --graph wine.ttl --benchmark wine-benchmark.ttl --output trace.json
+```
+
+Print the JSON Schema for the trace format:
+
+```bash
+cqa-grader trace-schema
+```
+
+### The trace
+
+```json
+{
+  "trace_format": "0.1",
+  "benchmark": "wine-benchmark",
+  "system": { "name": "my-retriever", "version": "0.3.0" },
+  "attempts": [
+    {
+      "question": "cq-03",
+      "retrieved": [
+        "https://w3id.org/wine-linkml/cabernet-sauvignon",
+        "https://w3id.org/wine-linkml/seafood-dish"
+      ],
+      "cited": [],
+      "asserts_absence": true
+    }
+  ]
+}
+```
+
+`question` is the benchmark's `cqa:id` for the question. `retrieved` and
+`cited` are IRIs into the target graph, exactly as the benchmark writes
+its anchors. `asserts_absence` is how a system says "none on record",
+which is what a closed-world negative is graded on. `answer` (optional)
+is the prose answer, unread by this tier. The schema is in
+[schemas/trace.schema.json](schemas/trace.schema.json).
+
+### The checks
+
+Every question gets three base checks, then one per answer kind it
+names. All must pass.
+
+| Check | Passes when |
+|---|---|
+| `attempted` | the trace holds an attempt at the question |
+| `anchors-reached` | `retrieved` ⊇ `expected_anchors` |
+| `citations-grounded` | `cited` ⊆ `retrieved` |
+| `lookup`, `comparison`, `synthesis` | `anchors-reached` passes (no further check until cqa declares expected values) |
+| `attribution` | `cited` ⊇ `expected_citations`, and `cited` is not empty |
+| `closed-world-negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
+| `citations-rest` | `cited` ⊇ `expected_citations`, for a question with citations that does not name `attribution` |
+
+Recall and precision over `expected_anchors` are reported for every
+attempt. Recall of one is what `anchors-reached` requires. Precision is
+never required; it is where a real retriever separates itself from the
+baseline.
+
+### The baseline
+
+The baseline links words in the question to records by `rdfs:label`,
+expands each entry point by one hop of SPARQL lookup (both directions,
+named individuals only), and cites everything it retrieved. It asserts
+absence when the records the question named fall into more than one
+group that nothing joins. It reaches every anchor in wine's benchmark
+with precision between 0.02 and 0.18, which is the point: the benchmark
+is answerable by lookup alone, and a retriever that cannot beat those
+numbers has not added anything.
+
+It never reads the key. A test blanks every anchor and checks the
+attempts do not change.
+
+## Library
+
+```rust
+use cqa_grader::{Benchmark, Trace, grade};
+
+let benchmark = Benchmark::from_path("wine-benchmark.ttl")?;
+let trace = Trace::from_path("trace.json")?;
+let report = grade(&benchmark, &trace)?;
+assert!(report.passed, "{}", report.to_text());
+# Ok::<(), cqa_grader::Error>(())
 ```
 
 ## Development
 
-See [CLAUDE.md](CLAUDE.md) for development commands.
+See [CLAUDE.md](CLAUDE.md) for the commands.
 
 ### Prerequisites
 
-- [Rust toolchain](https://rustup.rs/) (MSRV: 1.88)
-- [prek](https://github.com/j178/prek) for pre-commit hooks: `cargo install prek && prek install`
-
-### Build and test
+- Rust toolchain (MSRV 1.88)
+- [prek](https://github.com/j178/prek) for the pre-commit hooks: `cargo install prek && prek install`
+- [panschema](https://github.com/padamson/panschema), and sibling checkouts of
+  [ontology-authoring-template](https://github.com/padamson/ontology-authoring-template)
+  and [cqa-schema](https://github.com/padamson/cqa-schema) next to this
+  repository. The test graphs are generated from them, not checked in:
 
 ```bash
-cargo build
+panschema generate --strict     # writes tests/fixtures/wine.ttl and wine-benchmark.ttl
 cargo nextest run
 ```
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT or Apache-2.0, at your option. See [LICENSE-MIT](LICENSE-MIT) and
+[LICENSE-APACHE](LICENSE-APACHE).

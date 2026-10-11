@@ -75,7 +75,7 @@ repos:
       - id: cargo-audit
         name: cargo audit
         description: Check dependencies for known vulnerabilities
-        entry: cargo audit
+        entry: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
         language: system
         pass_filenames: false
         files: (Cargo\.toml|Cargo\.lock)$

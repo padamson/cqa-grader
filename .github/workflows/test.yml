@@ -88,5 +88,51 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      # --- Test graphs: generated from sibling packages with panschema ---
+      # panschema.toml consumes wine and cqa as `path:` siblings (neither
+      # has a release containing the benchmark yet), so CI provides the
+      # siblings the way a local co-development checkout does, and
+      # installs panschema from its main HEAD SHA so drift surfaces here.
+
+      - name: Check out sibling packages (wine, cqa)
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/padamson/ontology-authoring-template ../ontology-authoring-template
+          git clone --depth 1 https://github.com/padamson/cqa-schema ../cqa-schema
+
+      - name: Resolve latest panschema main SHA
+        id: panschema
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh api repos/padamson/panschema/commits/main --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Cache panschema binary
+        id: cache-panschema
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/panschema*
+          key: panschema-bin-${{ runner.os }}-${{ steps.panschema.outputs.sha }}
+
+      - name: Install wasm-pack (panschema build prerequisite)
+        if: steps.cache-panschema.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Install panschema from main
+        if: steps.cache-panschema.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cargo install --git https://github.com/padamson/panschema \
+            --rev ${{ steps.panschema.outputs.sha }} \
+            --locked --force \
+            panschema
+
+      - name: Generate test graphs
+        run: panschema generate --strict
+
       - name: Run tests
         run: cargo nextest run --workspace

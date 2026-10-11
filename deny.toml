@@ -13,7 +13,13 @@ feature-depth = 1
 # Source of truth for ignored RUSTSEC advisories. `cargo audit` has no
 # project-level config, so mirror this list as inline `--ignore` flags
 # in `.github/workflows/security.yml` and `.pre-commit-config.yaml`.
-ignore = []
+ignore = [
+    # quick-xml 0.37 via oxigraph's RDF/XML reader and SPARQL results
+    # parsers; this crate reads Turtle only. Retire when oxigraph moves
+    # to quick-xml >= 0.41.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]
 
 [licenses]
 allow = [

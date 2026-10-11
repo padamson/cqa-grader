@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trace",
+  "description": "A system's attempts at every question in one benchmark.",
+  "type": "object",
+  "properties": {
+    "attempts": {
+      "description": "One attempt per question. A question with no attempt fails.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Attempt"
+      }
+    },
+    "benchmark": {
+      "description": "The `cqa:id` of the benchmark these attempts answer (for wine,\n`wine-benchmark`).",
+      "type": "string"
+    },
+    "system": {
+      "description": "The system under test.",
+      "$ref": "#/$defs/System"
+    },
+    "trace_format": {
+      "description": "The trace format version. Must be [`TRACE_FORMAT`].",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "trace_format",
+    "benchmark",
+    "system",
+    "attempts"
+  ],
+  "$defs": {
+    "Attempt": {
+      "description": "What a system did with one question.",
+      "type": "object",
+      "properties": {
+        "answer": {
+          "description": "The prose answer, if the system wrote one. The deterministic tier\nnever reads it; a judge scoring it against `ground_truth` would.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "asserts_absence": {
+          "description": "Whether the system reports that the graph holds no record joining\nthe entities the question names. A closed-world negative is graded\non this: reaching the anchors and then saying \"none on record\" is a\ndifferent outcome from reaching them and saying nothing.",
+          "type": "boolean",
+          "default": false
+        },
+        "cited": {
+          "description": "The records the answer rests on. Must be among `retrieved`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "question": {
+          "description": "The question's `cqa:id` in the benchmark (for wine, `cq-03`).",
+          "type": "string"
+        },
+        "retrieved": {
+          "description": "Every record retrieval reached, as IRIs into the target graph.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ]
+    },
+    "System": {
+      "description": "The system that produced a trace.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "A name for the system under test.",
+          "type": "string"
+        },
+        "notes": {
+          "description": "Anything else worth recording about this run (a configuration, a\ncommit, a date). Free text; never read by the grader.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "description": "Its version, if it has one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    }
+  }
+}

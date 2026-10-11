@@ -1,0 +1,23 @@
+# The graphs cqa-grader is tested against, consumed as panschema packages.
+# Sibling checkouts today: wine's benchmark exists only on its main branch
+# (v0.2.0 predates it) and cqa has no release, so neither can be a
+# `github:` pin yet. When both ship, these become `source = "github:..."`
+# with a `version`, and the `instances` lines go away in favour of the
+# package's own datasets by name.
+[schemas.wine]
+path = "../ontology-authoring-template"
+
+[schemas.cqa]
+path = "../cqa-schema"
+
+[generate.wine]
+ttl = "tests/fixtures/wine.ttl"
+instances = ["../ontology-authoring-template/data/wine-instances.yaml"]
+
+[generate.cqa]
+ttl = "tests/fixtures/wine-benchmark.ttl"
+instances = ["../ontology-authoring-template/data/wine-benchmark.yaml"]
+
+[check.cqa]
+resolve_against = ["wine"]
+require_namespace_coverage = true
