@@ -1,0 +1,677 @@
+PREFIX cco: <https://www.commoncoreontologies.org/>
+PREFIX linkml: <https://w3id.org/linkml/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX wine: <https://w3id.org/wine-linkml/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+<https://w3id.org/wine-linkml/> a owl:Ontology;
+  <http://purl.org/dc/terms/license> <https://creativecommons.org/licenses/by/4.0/>;
+  rdfs:comment "An ontology of food and wine: the kinds of wine, the foods they\naccompany, and the characteristics that make a wine appropriate for a\ndish. It is built for applications that recommend good wine-and-food\npairings.";
+  owl:versionIRI wine:0.2.1;
+  owl:versionInfo "0.2.1".
+
+wine:BodyEnum a owl:Class;
+  rdfs:comment "The palate-weight classifications of a wine.";
+  rdfs:label "BodyEnum";
+  owl:oneOf <https://w3id.org/wine-linkml/BodyEnum/valuecell0>.
+
+<https://w3id.org/wine-linkml/BodyEnum/full> a owl:NamedIndividual,
+    wine:BodyEnum;
+  rdfs:comment "High perceived weight, typically with higher alcohol and extract.";
+  rdfs:label "full".
+
+<https://w3id.org/wine-linkml/BodyEnum/light> a owl:NamedIndividual,
+    wine:BodyEnum;
+  rdfs:comment "Low perceived weight on the palate.";
+  rdfs:label "light".
+
+<https://w3id.org/wine-linkml/BodyEnum/medium> a owl:NamedIndividual,
+    wine:BodyEnum;
+  rdfs:comment "Intermediate perceived weight on the palate.";
+  rdfs:label "medium".
+
+<https://w3id.org/wine-linkml/BodyEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum/full>;
+  rdf:rest <https://w3id.org/wine-linkml/BodyEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/BodyEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum/light>;
+  rdf:rest <https://w3id.org/wine-linkml/BodyEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/BodyEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum/medium>;
+  rdf:rest ().
+
+wine:FlavorEnum a owl:Class;
+  rdfs:comment "The taste-and-aroma intensity classifications of a wine.";
+  rdfs:label "FlavorEnum";
+  owl:oneOf <https://w3id.org/wine-linkml/FlavorEnum/valuecell0>.
+
+<https://w3id.org/wine-linkml/FlavorEnum/delicate> a owl:NamedIndividual,
+    wine:FlavorEnum;
+  rdfs:comment "A subtle, low-intensity impression.";
+  rdfs:label "delicate".
+
+<https://w3id.org/wine-linkml/FlavorEnum/moderate> a owl:NamedIndividual,
+    wine:FlavorEnum;
+  rdfs:comment "An intermediate-intensity impression.";
+  rdfs:label "moderate".
+
+<https://w3id.org/wine-linkml/FlavorEnum/strong> a owl:NamedIndividual,
+    wine:FlavorEnum;
+  rdfs:comment "A pronounced, high-intensity impression.";
+  rdfs:label "strong".
+
+<https://w3id.org/wine-linkml/FlavorEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  rdf:rest <https://w3id.org/wine-linkml/FlavorEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/FlavorEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  rdf:rest <https://w3id.org/wine-linkml/FlavorEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/FlavorEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  rdf:rest ().
+
+wine:Food a owl:Class;
+  rdfs:comment "A kind of food or dish that a wine can be recommended for, such as a seafood dish or grilled meat.";
+  rdfs:label "Food";
+  rdfs:subClassOf cco:ont00000307.
+
+wine:Grape a owl:Class;
+  rdfs:comment "A grape variety used to make wine, such as Cabernet Sauvignon or Zinfandel. Instances are varieties, mirroring Wine's kinds-as-instances reading.";
+  rdfs:label "Grape";
+  rdfs:subClassOf obo:BFO_0000030.
+
+wine:PairingRecommendation a owl:Class;
+  rdfs:comment "A recommendation that a wine suits a food, such as Cabernet Sauvignon with a seafood dish. Grounded as information about the pair rather than as a property of the wine.";
+  rdfs:label "PairingRecommendation";
+  rdfs:subClassOf cco:ont00000958.
+
+wine:SugarEnum a owl:Class;
+  rdfs:comment "The residual-sugar classifications of a wine.";
+  rdfs:label "SugarEnum";
+  owl:oneOf <https://w3id.org/wine-linkml/SugarEnum/valuecell0>.
+
+<https://w3id.org/wine-linkml/SugarEnum/dry> a owl:NamedIndividual,
+    wine:SugarEnum;
+  rdfs:comment "Little or no perceptible residual sugar.";
+  rdfs:label "dry".
+
+<https://w3id.org/wine-linkml/SugarEnum/off-dry> a owl:NamedIndividual,
+    wine:SugarEnum;
+  rdfs:comment "Slightly perceptible residual sugar.";
+  rdfs:label "off-dry".
+
+<https://w3id.org/wine-linkml/SugarEnum/sweet> a owl:NamedIndividual,
+    wine:SugarEnum;
+  rdfs:comment "Clearly perceptible residual sugar.";
+  rdfs:label "sweet".
+
+<https://w3id.org/wine-linkml/SugarEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  rdf:rest <https://w3id.org/wine-linkml/SugarEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/SugarEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum/off-dry>;
+  rdf:rest <https://w3id.org/wine-linkml/SugarEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/SugarEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum/sweet>;
+  rdf:rest ().
+
+wine:VerdictEnum a owl:Class;
+  rdfs:comment "The quality classifications an assessment can render.";
+  rdfs:label "VerdictEnum";
+  owl:oneOf <https://w3id.org/wine-linkml/VerdictEnum/valuecell0>.
+
+<https://w3id.org/wine-linkml/VerdictEnum/average> a owl:NamedIndividual,
+    wine:VerdictEnum;
+  rdfs:comment "Typical quality.";
+  rdfs:label "average".
+
+<https://w3id.org/wine-linkml/VerdictEnum/exceptional> a owl:NamedIndividual,
+    wine:VerdictEnum;
+  rdfs:comment "Well above the typical quality of comparable years.";
+  rdfs:label "exceptional".
+
+<https://w3id.org/wine-linkml/VerdictEnum/good> a owl:NamedIndividual,
+    wine:VerdictEnum;
+  rdfs:comment "Above typical quality.";
+  rdfs:label "good".
+
+<https://w3id.org/wine-linkml/VerdictEnum/poor> a owl:NamedIndividual,
+    wine:VerdictEnum;
+  rdfs:comment "Below typical quality.";
+  rdfs:label "poor".
+
+<https://w3id.org/wine-linkml/VerdictEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/average>;
+  rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/VerdictEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/exceptional>;
+  rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/VerdictEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/good>;
+  rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell3>.
+
+<https://w3id.org/wine-linkml/VerdictEnum/valuecell3>
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/poor>;
+  rdf:rest ().
+
+wine:VintageAssessment a owl:Class;
+  rdfs:comment "A sourced judgment of the quality of a vintage-specific wine kind, such as a vintage chart's verdict on a year's harvest.";
+  rdfs:label "VintageAssessment";
+  rdfs:subClassOf cco:ont00000958.
+
+wine:VintageYear a owl:Class;
+  rdfs:comment "The harvest year a wine is tied to. The \"2018 vintage as a batch of wine\" sense is deliberately out of scope.";
+  rdfs:label "VintageYear";
+  rdfs:subClassOf obo:BFO_0000038.
+
+wine:Wine a owl:Class;
+  rdfs:comment "A kind of wine, distinguished by its grape, provenance, and characteristics. Instances are named wine kinds such as Bordeaux or Napa Zinfandel, not individual bottles.";
+  rdfs:label "Wine";
+  rdfs:subClassOf cco:ont00001084.
+
+wine:WineCatalog a owl:Class;
+  rdfs:comment "The container holding a catalog of records: wine kinds, foods, grapes, regions, wineries, vintage years, and the judgments about them.";
+  rdfs:label "WineCatalog".
+
+wine:WineColorEnum a owl:Class;
+  rdfs:comment "The hue classifications a wine kind can present.";
+  rdfs:label "WineColorEnum";
+  owl:oneOf <https://w3id.org/wine-linkml/WineColorEnum/valuecell0>.
+
+<https://w3id.org/wine-linkml/WineColorEnum/red> a owl:NamedIndividual,
+    wine:WineColorEnum;
+  rdfs:comment "Fermented with extended contact between juice and dark grape skins.";
+  rdfs:label "red".
+
+<https://w3id.org/wine-linkml/WineColorEnum/rosé> a owl:NamedIndividual,
+    wine:WineColorEnum;
+  rdfs:comment "Fermented with brief skin contact, sitting between white and red.";
+  rdfs:label "rosé".
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/rosé>;
+  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/white>;
+  rdf:rest ().
+
+<https://w3id.org/wine-linkml/WineColorEnum/white> a owl:NamedIndividual,
+    wine:WineColorEnum;
+  rdfs:comment "Fermented with minimal skin contact, typically from pale-skinned grapes.";
+  rdfs:label "white".
+
+wine:WineRegion a owl:Class;
+  rdfs:comment "A geographic wine-growing region, such as Napa or Bordeaux.";
+  rdfs:label "WineRegion";
+  rdfs:subClassOf cco:ont00000472.
+
+wine:Winery a owl:Class;
+  rdfs:comment "An organization that produces wine.";
+  rdfs:label "Winery";
+  rdfs:subClassOf cco:ont00001180.
+
+wine:beaujolais a owl:NamedIndividual,
+    wine:WineRegion;
+  rdfs:label "Beaujolais";
+  wine:id "beaujolais";
+  wine:name "Beaujolais".
+
+wine:body a owl:ObjectProperty;
+  rdfs:comment "The perceived weight and fullness of a wine kind on the palate, driven by alcohol, extract, and residual sugar.";
+  rdfs:label "body";
+  rdfs:range wine:BodyEnum.
+
+wine:bordeaux-region a owl:NamedIndividual,
+    wine:WineRegion;
+  rdfs:label "Bordeaux";
+  wine:id "bordeaux-region";
+  wine:name "Bordeaux".
+
+wine:bordeaux-wine a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Bordeaux";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:id "bordeaux-wine";
+  wine:made_from_grape wine:cabernet-sauvignon-grape,
+    wine:merlot;
+  wine:name "Bordeaux";
+  wine:region wine:bordeaux-region;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:cabernet-sauvignon a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Cabernet Sauvignon";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:id "cabernet-sauvignon";
+  wine:made_from_grape wine:cabernet-sauvignon-grape;
+  wine:name "Cabernet Sauvignon";
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:cabernet-sauvignon-grape a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Cabernet Sauvignon";
+  wine:id "cabernet-sauvignon-grape";
+  wine:name "Cabernet Sauvignon".
+
+wine:chardonnay a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Chardonnay";
+  wine:id "chardonnay";
+  wine:name "Chardonnay".
+
+wine:chateau-morgon a owl:NamedIndividual,
+    wine:Winery;
+  rdfs:label "Chateau Morgon";
+  wine:id "chateau-morgon";
+  wine:name "Chateau Morgon".
+
+wine:chateau-morgon-beaujolais a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Chateau Morgon Beaujolais";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  wine:id "chateau-morgon-beaujolais";
+  wine:made_from_grape wine:gamay;
+  wine:maker wine:chateau-morgon;
+  wine:name "Chateau Morgon Beaujolais";
+  wine:region wine:beaujolais;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:color a owl:ObjectProperty;
+  rdfs:comment "The hue a wine kind presents, imparted chiefly by the extent of grape-skin contact during maceration and shifted by variety and age.";
+  rdfs:label "color";
+  rdfs:range wine:WineColorEnum.
+
+wine:confidence a owl:DatatypeProperty;
+  rdfs:comment "How strongly the source backs the judgment, from 0 to 1.";
+  rdfs:label "confidence";
+  rdfs:range xsd:float.
+
+wine:flavor a owl:ObjectProperty;
+  rdfs:comment "The intensity of the taste and aroma impression a wine kind makes.";
+  rdfs:label "flavor";
+  rdfs:range wine:FlavorEnum.
+
+wine:food a owl:ObjectProperty;
+  rdfs:comment "The food kind a pairing recommendation is about.";
+  rdfs:label "food";
+  rdfs:range wine:Food.
+
+wine:foods a owl:ObjectProperty;
+  rdfs:comment "The food kinds in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "foods";
+  rdfs:range wine:Food.
+
+wine:gamay a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Gamay";
+  wine:id "gamay";
+  wine:name "Gamay".
+
+wine:grapes a owl:ObjectProperty;
+  rdfs:comment "The grape varieties in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "grapes";
+  rdfs:range wine:Grape.
+
+wine:grenache a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Grenache";
+  wine:id "grenache";
+  wine:name "Grenache".
+
+wine:grilled-meat a owl:NamedIndividual,
+    wine:Food;
+  rdfs:label "Grilled meat";
+  wine:id "grilled-meat";
+  wine:name "Grilled meat".
+
+wine:id a owl:DatatypeProperty;
+  rdfs:comment "The short, stable identifier a record is referenced by within a catalog.";
+  rdfs:label "id";
+  rdfs:range xsd:string.
+
+wine:late-harvest-riesling a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Late Harvest Riesling";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:id "late-harvest-riesling";
+  wine:made_from_grape wine:riesling;
+  wine:name "Late Harvest Riesling";
+  wine:region wine:mosel;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/sweet>.
+
+wine:made_from_grape a owl:ObjectProperty;
+  rdfs:comment "The grape variety or varieties a wine kind is made from.";
+  rdfs:label "made_from_grape";
+  rdfs:range wine:Grape.
+
+wine:maker a owl:ObjectProperty;
+  rdfs:comment "The winery that makes a wine kind.";
+  rdfs:label "maker";
+  rdfs:range wine:Winery.
+
+wine:merlot a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Merlot";
+  wine:id "merlot";
+  wine:name "Merlot".
+
+wine:mosel a owl:NamedIndividual,
+    wine:WineRegion;
+  rdfs:label "Mosel";
+  wine:id "mosel";
+  wine:name "Mosel".
+
+wine:mosel-riesling a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Mosel Riesling";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:id "mosel-riesling";
+  wine:made_from_grape wine:riesling;
+  wine:name "Mosel Riesling";
+  wine:region wine:mosel;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/off-dry>.
+
+wine:name a owl:DatatypeProperty;
+  rdfs:comment "The name by which a kind, place, producer, or recommendation is known. Every class carries it.";
+  rdfs:label "name";
+  rdfs:range xsd:string.
+
+wine:napa a owl:NamedIndividual,
+    wine:WineRegion;
+  rdfs:label "Napa Valley";
+  wine:id "napa";
+  wine:name "Napa Valley".
+
+wine:napa-cellars a owl:NamedIndividual,
+    wine:Winery;
+  rdfs:label "Napa Cellars";
+  wine:id "napa-cellars";
+  wine:name "Napa Cellars".
+
+wine:napa-chardonnay a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Napa Chardonnay";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:id "napa-chardonnay";
+  wine:made_from_grape wine:chardonnay;
+  wine:maker wine:napa-cellars;
+  wine:name "Napa Chardonnay";
+  wine:region wine:napa;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:napa-zinfandel-2017 a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Napa Zinfandel 2017";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/medium>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:id "napa-zinfandel-2017";
+  wine:made_from_grape wine:zinfandel;
+  wine:maker wine:napa-cellars;
+  wine:name "Napa Zinfandel 2017";
+  wine:region wine:napa;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  wine:vintage wine:vy-2017.
+
+wine:napa-zinfandel-2018 a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Napa Zinfandel 2018";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:id "napa-zinfandel-2018";
+  wine:made_from_grape wine:zinfandel;
+  wine:maker wine:napa-cellars;
+  wine:name "Napa Zinfandel 2018";
+  wine:region wine:napa;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  wine:vintage wine:vy-2018.
+
+wine:pairing_recommendations a owl:ObjectProperty;
+  rdfs:comment "The pairing recommendations in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "pairing_recommendations";
+  rdfs:range wine:PairingRecommendation.
+
+wine:pr-beaujolais-chicken a owl:NamedIndividual,
+    wine:PairingRecommendation;
+  rdfs:label "Beaujolais with roast chicken";
+  wine:confidence "0.7"^^xsd:float;
+  wine:food wine:roast-chicken;
+  wine:id "pr-beaujolais-chicken";
+  wine:name "Beaujolais with roast chicken";
+  wine:rationale "A light-bodied, low-tannin red is versatile enough for white meat; its delicate flavor complements roast chicken rather than masking it.";
+  wine:source "Pairing guide";
+  wine:wine wine:chateau-morgon-beaujolais.
+
+wine:pr-cabsauv-grilledmeat a owl:NamedIndividual,
+    wine:PairingRecommendation;
+  rdfs:label "Cabernet Sauvignon with grilled meat";
+  wine:confidence "0.9"^^xsd:float;
+  wine:food wine:grilled-meat;
+  wine:id "pr-cabsauv-grilledmeat";
+  wine:name "Cabernet Sauvignon with grilled meat";
+  wine:rationale "The tannins in a full-bodied Cabernet Sauvignon bind the fats and proteins of grilled red meat, softening the wine and cleansing the palate between bites.";
+  wine:source "House sommelier";
+  wine:wine wine:cabernet-sauvignon.
+
+wine:pr-chardonnay-seafood a owl:NamedIndividual,
+    wine:PairingRecommendation;
+  rdfs:label "Napa Chardonnay with a seafood dish";
+  wine:confidence "0.85"^^xsd:float;
+  wine:food wine:seafood-dish;
+  wine:id "pr-chardonnay-seafood";
+  wine:name "Napa Chardonnay with a seafood dish";
+  wine:rationale "A crisp white with bright acidity lifts delicate seafood without overwhelming it; the wine's weight matches the dish's.";
+  wine:source "House sommelier";
+  wine:wine wine:napa-chardonnay.
+
+wine:provence a owl:NamedIndividual,
+    wine:WineRegion;
+  rdfs:label "Provence";
+  wine:id "provence";
+  wine:name "Provence".
+
+wine:provence-rose a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Provence Rosé";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/rosé>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  wine:id "provence-rose";
+  wine:made_from_grape wine:grenache;
+  wine:name "Provence Rosé";
+  wine:region wine:provence;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:rationale a owl:DatatypeProperty;
+  rdfs:comment "The reasoning behind a recommendation or a verdict, in prose.";
+  rdfs:label "rationale";
+  rdfs:range xsd:string.
+
+wine:region a owl:ObjectProperty;
+  rdfs:comment "The wine region a wine kind comes from (its appellation), stored rather than derived: a winery's address does not determine where its wine's grapes grow.";
+  rdfs:label "region";
+  rdfs:range wine:WineRegion.
+
+wine:regions a owl:ObjectProperty;
+  rdfs:comment "The wine regions in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "regions";
+  rdfs:range wine:WineRegion.
+
+wine:riesling a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Riesling";
+  wine:id "riesling";
+  wine:name "Riesling".
+
+wine:roast-chicken a owl:NamedIndividual,
+    wine:Food;
+  rdfs:label "Roast chicken";
+  wine:id "roast-chicken";
+  wine:name "Roast chicken".
+
+wine:seafood-dish a owl:NamedIndividual,
+    wine:Food;
+  rdfs:label "Seafood dish";
+  wine:id "seafood-dish";
+  wine:name "Seafood dish".
+
+wine:source a owl:DatatypeProperty;
+  rdfs:comment "Where a recommendation or assessment comes from (a sommelier, a text, a dataset).";
+  rdfs:label "source";
+  rdfs:range xsd:string.
+
+wine:sterling-merlot a owl:NamedIndividual,
+    wine:Wine;
+  rdfs:label "Sterling Vineyards Merlot";
+  wine:body <https://w3id.org/wine-linkml/BodyEnum/medium>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:id "sterling-merlot";
+  wine:made_from_grape wine:merlot;
+  wine:maker wine:sterling-vineyards;
+  wine:name "Sterling Vineyards Merlot";
+  wine:region wine:napa;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+
+wine:sterling-vineyards a owl:NamedIndividual,
+    wine:Winery;
+  rdfs:label "Sterling Vineyards";
+  wine:id "sterling-vineyards";
+  wine:name "Sterling Vineyards".
+
+wine:sugar a owl:ObjectProperty;
+  rdfs:comment "The residual sugar a wine kind retains after fermentation, perceived as its sweetness.";
+  rdfs:label "sugar";
+  rdfs:range wine:SugarEnum.
+
+wine:va-late-harvest-riesling a owl:NamedIndividual,
+    wine:VintageAssessment;
+  rdfs:label "Late Harvest Riesling assessment";
+  wine:confidence "0.9"^^xsd:float;
+  wine:id "va-late-harvest-riesling";
+  wine:name "Late Harvest Riesling assessment";
+  wine:rationale "A long, dry autumn let botrytis concentrate the sugars fully, giving a depth and balance that lift the vintage well above its peers.";
+  wine:source "Regional vintage chart";
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/exceptional>;
+  wine:wine wine:late-harvest-riesling.
+
+wine:va-napa-zin-2017 a owl:NamedIndividual,
+    wine:VintageAssessment;
+  rdfs:label "Napa Zinfandel 2017 assessment";
+  wine:confidence "0.75"^^xsd:float;
+  wine:id "va-napa-zin-2017";
+  wine:name "Napa Zinfandel 2017 assessment";
+  wine:source "Regional vintage chart";
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/average>;
+  wine:wine wine:napa-zinfandel-2017.
+
+wine:va-napa-zin-2018 a owl:NamedIndividual,
+    wine:VintageAssessment;
+  rdfs:label "Napa Zinfandel 2018 assessment";
+  wine:confidence "0.8"^^xsd:float;
+  wine:id "va-napa-zin-2018";
+  wine:name "Napa Zinfandel 2018 assessment";
+  wine:source "Regional vintage chart";
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/good>;
+  wine:wine wine:napa-zinfandel-2018.
+
+wine:va-provence-rose a owl:NamedIndividual,
+    wine:VintageAssessment;
+  rdfs:label "Provence Rosé assessment";
+  wine:confidence "0.7"^^xsd:float;
+  wine:id "va-provence-rose";
+  wine:name "Provence Rosé assessment";
+  wine:rationale "A cool, wet growing season left the fruit underripe and the wine thin and short, below the appellation's usual standard.";
+  wine:source "Regional vintage chart";
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/poor>;
+  wine:wine wine:provence-rose.
+
+wine:verdict a owl:ObjectProperty;
+  rdfs:comment "The quality judgment an assessment renders on its wine.";
+  rdfs:label "verdict";
+  rdfs:range wine:VerdictEnum.
+
+wine:vintage a owl:ObjectProperty;
+  rdfs:comment "The harvest year a wine kind is tied to. Vintage-specific kinds (the 2018 Napa Zinfandel) are themselves valid Wine instances.";
+  rdfs:label "vintage";
+  rdfs:range wine:VintageYear.
+
+wine:vintage_assessments a owl:ObjectProperty;
+  rdfs:comment "The vintage assessments in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "vintage_assessments";
+  rdfs:range wine:VintageAssessment.
+
+wine:vintage_years a owl:ObjectProperty;
+  rdfs:comment "The vintage years in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "vintage_years";
+  rdfs:range wine:VintageYear.
+
+wine:vy-2017 a owl:NamedIndividual,
+    wine:VintageYear;
+  rdfs:label "2017";
+  wine:id "vy-2017";
+  wine:name "2017".
+
+wine:vy-2018 a owl:NamedIndividual,
+    wine:VintageYear;
+  rdfs:label "2018";
+  wine:id "vy-2018";
+  wine:name "2018".
+
+wine:wine a owl:ObjectProperty;
+  rdfs:comment "The wine kind a recommendation or assessment is about.";
+  rdfs:label "wine";
+  rdfs:range wine:Wine.
+
+wine:wineries a owl:ObjectProperty;
+  rdfs:comment "The wineries in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "wineries";
+  rdfs:range wine:Winery.
+
+wine:wines a owl:ObjectProperty;
+  rdfs:comment "The wine kinds in this catalog.";
+  rdfs:domain wine:WineCatalog;
+  rdfs:label "wines";
+  rdfs:range wine:Wine.
+
+wine:zinfandel a owl:NamedIndividual,
+    wine:Grape;
+  rdfs:label "Zinfandel";
+  wine:id "zinfandel";
+  wine:name "Zinfandel".

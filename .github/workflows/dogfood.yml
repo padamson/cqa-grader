@@ -1,0 +1,102 @@
+name: Dogfood
+
+# The Test workflow reads the committed test graphs, so a push upstream
+# cannot turn it red. This one regenerates the graphs from wine's and cqa's
+# main branches with panschema's main, runs the suite on them, and fails
+# when they differ from the committed ones. Moving the fixtures forward is
+# a commit of `scripts/regen-fixtures.sh`'s output.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Daily, 6:17am UTC
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  dogfood:
+    name: Regenerate and test against main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: dogfood
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2.87.26
+        with:
+          tool: cargo-nextest
+
+      # panschema.toml consumes wine and cqa as `path:` siblings, so CI
+      # provides them the way a local co-development checkout does.
+      # `--no-single-branch` keeps the tags, which PROVENANCE names.
+      - name: Check out sibling packages (wine, cqa)
+        run: |
+          git clone --depth 50 --no-single-branch https://github.com/padamson/ontology-authoring-template ../ontology-authoring-template
+          git clone --depth 50 --no-single-branch https://github.com/padamson/cqa-schema ../cqa-schema
+
+      - name: Resolve latest panschema main SHA
+        id: panschema
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh api repos/padamson/panschema/commits/main --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Cache panschema binary
+        id: cache-panschema
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/panschema*
+          key: panschema-bin-${{ runner.os }}-${{ steps.panschema.outputs.sha }}
+
+      - name: Install wasm-pack (panschema build prerequisite)
+        if: steps.cache-panschema.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@v2.87.26
+        with:
+          tool: wasm-pack
+
+      - name: Install panschema from main
+        if: steps.cache-panschema.outputs.cache-hit != 'true'
+        run: |
+          cargo install --git https://github.com/padamson/panschema \
+            --rev ${{ steps.panschema.outputs.sha }} \
+            --locked --force \
+            panschema
+
+      - name: Regenerate test graphs
+        run: ./scripts/regen-fixtures.sh
+
+      - name: Show what the graphs were generated from
+        run: cat tests/fixtures/PROVENANCE
+
+      - name: Run tests on the regenerated graphs
+        run: cargo nextest run --workspace
+
+      # PROVENANCE always differs (it names the commits), so only the
+      # graphs are compared; `add -N` makes a graph that is not committed
+      # yet show up in the diff. Runs even when the tests fail, so the diff
+      # that explains the failure is in the log.
+      - name: Compare with the committed graphs
+        if: success() || failure()
+        run: |
+          git add -N -- 'tests/fixtures/*.ttl'
+          if ! git diff --exit-code -- 'tests/fixtures/*.ttl'; then
+            echo "::error::The committed test graphs are behind the producers' main. Run scripts/regen-fixtures.sh and commit the result."
+            exit 1
+          fi

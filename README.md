@@ -168,13 +168,19 @@ See [CLAUDE.md](CLAUDE.md) for the commands.
 
 - Rust toolchain (MSRV 1.88)
 - [prek](https://github.com/j178/prek) for the pre-commit hooks: `cargo install prek && prek install`
-- [panschema](https://github.com/padamson/panschema), and sibling checkouts of
-  [ontology-authoring-template](https://github.com/padamson/ontology-authoring-template)
-  and [cqa-schema](https://github.com/padamson/cqa-schema) next to this
-  repository. The test graphs are generated from them, not checked in:
+
+### Test graphs
+
+The test graphs in `tests/fixtures/` are committed, so `cargo nextest run`
+works in a fresh clone. They are generated, not written by hand: to move
+them forward you need [panschema](https://github.com/padamson/panschema)
+and sibling checkouts of
+[ontology-authoring-template](https://github.com/padamson/ontology-authoring-template)
+and [cqa-schema](https://github.com/padamson/cqa-schema) next to this
+repository.
 
 ```bash
-panschema generate --strict     # writes tests/fixtures/wine.ttl and wine-benchmark.ttl
+./scripts/regen-fixtures.sh     # rewrites tests/fixtures/*.ttl and PROVENANCE
 cargo nextest run
 ```
 

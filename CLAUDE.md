@@ -33,24 +33,32 @@ benchmark's CI has something to grade.
   crates/site/public/architecture` writes the site's Architecture
   section (`preview.sh` does this).
 
-## Test graphs are generated, not vendored
+## Test graphs are generated, then committed
 
 `panschema.toml` consumes wine (ontology-authoring-template) and cqa
-(cqa-schema) as `path:` siblings and generates `tests/fixtures/*.ttl`
-(gitignored). Both outputs are byte-identical to wine's own published
-`site/artifacts/`. CI clones the siblings and installs panschema from its
-main SHA. The sibling paths become `github:` pins when wine releases a
-version containing the benchmark and cqa tags v0.1.0.
+(cqa-schema) as `path:` siblings and generates `tests/fixtures/*.ttl`.
+Both outputs are byte-identical to wine's own published `site/artifacts/`.
+They are committed like a lockfile, with `tests/fixtures/PROVENANCE`
+naming the sibling and panschema versions they came from, so a fresh
+clone runs the tests with neither the siblings nor panschema. Never edit
+them by hand; regenerate:
 
 ```bash
-panschema generate --strict   # regenerate tests/fixtures/
+./scripts/regen-fixtures.sh                                         # panschema on PATH
+PANSCHEMA=../panschema/target/debug/panschema ./scripts/regen-fixtures.sh
 ```
+
+The Dogfood workflow (every push to main, and daily) clones the siblings'
+`main`, installs panschema from its main SHA, regenerates, runs the
+suite, and fails if the graphs differ from the committed ones. Moving the
+fixtures forward is a commit of the script's output, reviewed like any
+other diff.
 
 ## Development
 
 ```bash
 cargo build              # build
-cargo nextest run        # run tests (needs tests/fixtures/, see above)
+cargo nextest run        # run tests
 cargo test --doc         # doc tests
 cargo clippy             # lint
 cargo fmt                # format
@@ -63,8 +71,8 @@ cargo run -- trace-schema > schemas/trace.schema.json   # after changing src/tra
 ## Sandbox
 
 Claude Code's sandbox (sandbox-runtime, Seatbelt on macOS) is on
-globally. The sibling checkouts are read, never written: `panschema
-generate` reads `../ontology-authoring-template` and `../cqa-schema`,
+globally. The sibling checkouts are read, never written:
+`scripts/regen-fixtures.sh` reads `../ontology-authoring-template` and `../cqa-schema`,
 and a panschema debug build is made in panschema's own session.
 Anything that needs the Keychain or writes git hooks (`prek install`,
 `gh auth`) runs outside the sandbox, by hand.

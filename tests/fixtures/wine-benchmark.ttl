@@ -1,0 +1,261 @@
+PREFIX cco: <https://www.commoncoreontologies.org/>
+PREFIX cqa: <https://w3id.org/cqa/>
+PREFIX earl: <http://www.w3.org/ns/earl#>
+PREFIX linkml: <https://w3id.org/linkml/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+<https://w3id.org/cqa/> a owl:Ontology;
+  <http://purl.org/dc/terms/license> <https://creativecommons.org/licenses/by/4.0/>;
+  rdfs:comment "A vocabulary for competency question benchmarks over a knowledge\ngraph. One record pairs a question with the specification of its\ncorrect answer: the answer in prose, the kind of answering the\nquestion demands, and the records a correct answer must retrieve\nand cite. The graph being evaluated is external — its records are\nreferenced by IRI rather than held here.";
+  owl:versionIRI cqa:0.1.1;
+  owl:versionInfo "0.1.1".
+
+cqa:AnswerKindEnum a owl:Class;
+  rdfs:comment "The kinds of answering a competency question can call for. Each names a different check on a correct answer.";
+  rdfs:label "AnswerKindEnum";
+  owl:oneOf <https://w3id.org/cqa/AnswerKindEnum/valuecell0>.
+
+<https://w3id.org/cqa/AnswerKindEnum/attribution> a owl:NamedIndividual,
+    cqa:AnswerKindEnum;
+  rdfs:comment "An answer that must carry the source it rests on. The question is answerable without it, but not answerable well.";
+  rdfs:label "attribution".
+
+<https://w3id.org/cqa/AnswerKindEnum/closed-world-negative> a owl:NamedIndividual,
+    cqa:AnswerKindEnum;
+  rdfs:comment "The correct answer is that the graph holds no such record. Absence of a record is not evidence against the claim, only absence of a claim for it.";
+  rdfs:label "closed-world-negative".
+
+<https://w3id.org/cqa/AnswerKindEnum/comparison> a owl:NamedIndividual,
+    cqa:AnswerKindEnum;
+  rdfs:comment "Two or more records set against each other on a shared slot.";
+  rdfs:label "comparison".
+
+<https://w3id.org/cqa/AnswerKindEnum/lookup> a owl:NamedIndividual,
+    cqa:AnswerKindEnum;
+  rdfs:comment "A value read from a single record.";
+  rdfs:label "lookup".
+
+<https://w3id.org/cqa/AnswerKindEnum/synthesis> a owl:NamedIndividual,
+    cqa:AnswerKindEnum;
+  rdfs:comment "A pattern across several records that no single record states.";
+  rdfs:label "synthesis".
+
+<https://w3id.org/cqa/AnswerKindEnum/valuecell0>
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum/attribution>;
+  rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell1>.
+
+<https://w3id.org/cqa/AnswerKindEnum/valuecell1>
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell2>.
+
+<https://w3id.org/cqa/AnswerKindEnum/valuecell2>
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell3>.
+
+<https://w3id.org/cqa/AnswerKindEnum/valuecell3>
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum/lookup>;
+  rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell4>.
+
+<https://w3id.org/cqa/AnswerKindEnum/valuecell4>
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum/synthesis>;
+  rdf:rest ().
+
+cqa:Benchmark a owl:Class;
+  rdfs:comment "A named set of competency question answers, evaluated against one knowledge graph.";
+  rdfs:label "Benchmark";
+  rdfs:subClassOf cco:ont00000958;
+  skos:closeMatch earl:TestRequirement.
+
+cqa:CompetencyQuestionAnswer a owl:Class;
+  rdfs:comment "A competency question paired with the specification of its correct answer.";
+  rdfs:label "CompetencyQuestionAnswer";
+  rdfs:subClassOf cco:ont00000958;
+  skos:closeMatch earl:TestCase.
+
+cqa:DomainRecord a owl:Class;
+  rdfs:comment "A record in the knowledge graph that a benchmark is evaluated against. Its instances belong to that graph, not to this schema.";
+  rdfs:label "DomainRecord".
+
+cqa:answer_kind a owl:ObjectProperty;
+  rdfs:comment "The kinds of answering this question calls for. Every kind named is a separate check, and all of them must pass.";
+  rdfs:label "answer_kind";
+  rdfs:range cqa:AnswerKindEnum.
+
+cqa:competency_question_answers a owl:ObjectProperty;
+  rdfs:comment "The questions this benchmark holds.";
+  rdfs:domain cqa:Benchmark;
+  rdfs:label "competency_question_answers";
+  rdfs:range cqa:CompetencyQuestionAnswer.
+
+cqa:connecting_class a owl:DatatypeProperty;
+  rdfs:comment "The class a joining record would belong to, as a URI in the target schema. Optional, because a benchmark can be written against a graph whose schema its author does not have: without it the claim is that no record of any kind joins the anchors, and with it the claim is narrowed to one kind.";
+  rdfs:label "connecting_class";
+  rdfs:range xsd:anyURI.
+
+cqa:description a owl:DatatypeProperty;
+  rdfs:comment "A longer prose account of what this benchmark covers.";
+  rdfs:label "description";
+  rdfs:range xsd:string.
+
+cqa:expected_anchors a owl:ObjectProperty;
+  rdfs:comment "The records a correct answer must retrieve, as IRIs into the target graph. For an answer that reports no such record exists, these are the records whose absent connection is the answer, and reaching them is what distinguishes that answer from a system that retrieved nothing.";
+  rdfs:label "expected_anchors";
+  rdfs:range cqa:DomainRecord.
+
+cqa:expected_citations a owl:ObjectProperty;
+  rdfs:comment "The records a correct answer must rest on, as IRIs into the target graph. Always among the anchors: retrieving a record is not the same as answering from it. Empty is a real answer.";
+  rdfs:label "expected_citations";
+  rdfs:range cqa:DomainRecord;
+  rdfs:subPropertyOf cqa:expected_anchors.
+
+cqa:ground_truth a owl:DatatypeProperty;
+  rdfs:comment "The correct answer in prose. A generated answer is scored against this; the anchors below are what retrieval is scored against.";
+  rdfs:label "ground_truth";
+  rdfs:range xsd:string.
+
+cqa:id a owl:DatatypeProperty;
+  rdfs:comment "The short, stable identifier a record is known by.";
+  rdfs:label "id";
+  rdfs:range xsd:string.
+
+cqa:name a owl:DatatypeProperty;
+  rdfs:comment "A short human-readable label.";
+  rdfs:label "name";
+  rdfs:range xsd:string.
+
+cqa:question a owl:DatatypeProperty;
+  rdfs:comment "The competency question, in the words it would be asked in.";
+  rdfs:label "question";
+  rdfs:range xsd:string.
+
+cqa:target_dataset a owl:DatatypeProperty;
+  rdfs:comment "Which instance graph the anchors resolve in, named as the target package publishes it: a dataset name from that package's publish manifest. One schema can have several, and they need not hold the same records, so naming the schema and its version does not identify one.";
+  rdfs:label "target_dataset";
+  rdfs:range xsd:string.
+
+cqa:target_dataset_version a owl:DatatypeProperty;
+  rdfs:comment "The version of the dataset the anchors were written against: the release identifier of whatever publishes it, which is the schema's own version when the two ship together. It fixes which records exist, since records can be added, corrected or removed without the schema changing.";
+  rdfs:label "target_dataset_version";
+  rdfs:range xsd:string.
+
+cqa:target_schema a owl:DatatypeProperty;
+  rdfs:comment "The schema the target graph's records conform to, as a URI.";
+  rdfs:label "target_schema";
+  rdfs:range xsd:anyURI.
+
+cqa:target_schema_version a owl:DatatypeProperty;
+  rdfs:comment "The version of the target schema the anchors were written against: the release identifier of whatever publishes the schema, which can differ from the version the schema file declares. It fixes how identifiers are minted, which can change between releases.";
+  rdfs:label "target_schema_version";
+  rdfs:range xsd:string.
+
+cqa:unconnected_anchors a owl:ObjectProperty;
+  rdfs:comment "The anchors that no single record joins, for an answer whose correctness is that the graph holds no such connection. A subset of the anchors: a claim about a record retrieval was never required to reach cannot be checked against what was retrieved. Records held by a container do not count as joined by it.";
+  rdfs:label "unconnected_anchors";
+  rdfs:range cqa:DomainRecord;
+  rdfs:subPropertyOf cqa:expected_anchors.
+
+cqa:wine-benchmark a owl:NamedIndividual,
+    cqa:Benchmark;
+  rdfs:label "Wine competency questions";
+  cqa:competency_question_answers <https://w3id.org/cqa/wine-benchmark/cq-02>,
+    <https://w3id.org/cqa/wine-benchmark/cq-03>,
+    <https://w3id.org/cqa/wine-benchmark/cq-04>,
+    <https://w3id.org/cqa/wine-benchmark/cq-05>,
+    <https://w3id.org/cqa/wine-benchmark/cq-06>,
+    <https://w3id.org/cqa/wine-benchmark/cq-07>;
+  cqa:description "The seven competency questions of the wine ontology, less the one its schema answers, each paired with the specification of its correct answer over wine's worked-example graph.";
+  cqa:id "wine-benchmark";
+  cqa:name "Wine competency questions";
+  cqa:target_dataset "worked-example";
+  cqa:target_dataset_version "0.2.1";
+  cqa:target_schema "https://w3id.org/wine-linkml/"^^xsd:anyURI;
+  cqa:target_schema_version "0.2.1".
+
+<https://w3id.org/cqa/wine-benchmark/cq-02> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Bordeaux colour";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/lookup>;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/bordeaux-wine>;
+  cqa:ground_truth "Red. The bordeaux-wine record carries color: red — a lookup by name, one hop to a value.";
+  cqa:id "cq-02";
+  cqa:name "Bordeaux colour";
+  cqa:question "Is Bordeaux a red or white wine?".
+
+<https://w3id.org/cqa/wine-benchmark/cq-03> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Cabernet Sauvignon with seafood";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  cqa:connecting_class "https://w3id.org/wine-linkml/PairingRecommendation"^^xsd:anyURI;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/seafood-dish>;
+  cqa:ground_truth "None on record. No pairing recommendation links the Cabernet Sauvignon to a seafood dish, and none is inferable. Under a closed-world reading the absence of a recommendation is not evidence against the pairing, only the absence of a claim for it.";
+  cqa:id "cq-03";
+  cqa:name "Cabernet Sauvignon with seafood";
+  cqa:question "Does Cabernet Sauvignon go well with seafood?";
+  cqa:unconnected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/seafood-dish>.
+
+<https://w3id.org/cqa/wine-benchmark/cq-04> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Wine for grilled meat";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/attribution>;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/grilled-meat>,
+    <https://w3id.org/wine-linkml/pr-cabsauv-grilledmeat>;
+  cqa:expected_citations <https://w3id.org/wine-linkml/pr-cabsauv-grilledmeat>;
+  cqa:ground_truth "The Cabernet Sauvignon, on the pr-cabsauv-grilledmeat recommendation, with confidence 0.9 and the rationale that its tannins bind the fats and proteins of grilled red meat.";
+  cqa:id "cq-04";
+  cqa:name "Wine for grilled meat";
+  cqa:question "What is the best choice of wine for grilled meat?".
+
+<https://w3id.org/cqa/wine-benchmark/cq-05> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Characteristics affecting a pairing";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/synthesis>;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
+    <https://w3id.org/wine-linkml/chateau-morgon-beaujolais>,
+    <https://w3id.org/wine-linkml/napa-chardonnay>,
+    <https://w3id.org/wine-linkml/pr-beaujolais-chicken>,
+    <https://w3id.org/wine-linkml/pr-cabsauv-grilledmeat>,
+    <https://w3id.org/wine-linkml/pr-chardonnay-seafood>;
+  cqa:expected_citations <https://w3id.org/wine-linkml/pr-beaujolais-chicken>,
+    <https://w3id.org/wine-linkml/pr-cabsauv-grilledmeat>,
+    <https://w3id.org/wine-linkml/pr-chardonnay-seafood>;
+  cqa:ground_truth "A pattern across the three recommendations' rationales, which no single record states: tannin against protein, acidity against delicate seafood, and a light body's versatility with white meat.";
+  cqa:id "cq-05";
+  cqa:name "Characteristics affecting a pairing";
+  cqa:question "Which characteristics of a wine affect its appropriateness for a dish?".
+
+<https://w3id.org/cqa/wine-benchmark/cq-06> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Vintage variation";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/napa-zinfandel-2017>,
+    <https://w3id.org/wine-linkml/napa-zinfandel-2018>,
+    <https://w3id.org/wine-linkml/vy-2017>,
+    <https://w3id.org/wine-linkml/vy-2018>;
+  cqa:ground_truth "Yes. The 2017 and 2018 Napa Zinfandel share grape, region and maker and differ in vintage and in body: medium against full.";
+  cqa:id "cq-06";
+  cqa:name "Vintage variation";
+  cqa:question "Does a bouquet or body of a specific wine change with vintage year?".
+
+<https://w3id.org/cqa/wine-benchmark/cq-07> a owl:NamedIndividual,
+    cqa:CompetencyQuestionAnswer;
+  rdfs:label "Good vintages for Napa Zinfandel";
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/attribution>,
+    <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  cqa:expected_anchors <https://w3id.org/wine-linkml/napa-zinfandel-2017>,
+    <https://w3id.org/wine-linkml/napa-zinfandel-2018>,
+    <https://w3id.org/wine-linkml/va-napa-zin-2017>,
+    <https://w3id.org/wine-linkml/va-napa-zin-2018>;
+  cqa:expected_citations <https://w3id.org/wine-linkml/va-napa-zin-2017>,
+    <https://w3id.org/wine-linkml/va-napa-zin-2018>;
+  cqa:ground_truth "2018. The regional vintage chart rates 2018 good and 2017 average, each with its source and confidence. The answer carries attribution: not \"2018 was good\" but \"the regional vintage chart rates 2018 good.\"";
+  cqa:id "cq-07";
+  cqa:name "Good vintages for Napa Zinfandel";
+  cqa:question "What were good vintages for Napa Zinfandel?".

@@ -329,7 +329,7 @@ enum Slot {
 pub(crate) mod tests {
     use super::*;
 
-    /// The generated benchmark fixture. Panics with the fix if it is missing.
+    /// The committed benchmark fixture.
     pub(crate) fn wine_benchmark() -> String {
         fixture("wine-benchmark.ttl")
     }
@@ -340,9 +340,7 @@ pub(crate) mod tests {
             .join(name);
         std::fs::read_to_string(&path).unwrap_or_else(|e| {
             panic!(
-                "{}: {e}. The fixtures are generated from sibling checkouts of \
-                 ontology-authoring-template and cqa-schema: run `panschema generate --strict` \
-                 in the repo root first.",
+                "{}: {e}. It is committed, so restore it with `git checkout`",
                 path.display()
             )
         })
@@ -354,9 +352,9 @@ pub(crate) mod tests {
         assert_eq!(b.id, "wine-benchmark");
         assert_eq!(b.name.as_deref(), Some("Wine competency questions"));
         assert_eq!(b.target_schema, "https://w3id.org/wine-linkml/");
-        assert_eq!(b.target_schema_version, "0.2.0");
+        assert_eq!(b.target_schema_version, "0.2.1");
         assert_eq!(b.target_dataset, "worked-example");
-        assert_eq!(b.target_dataset_version, "0.2.0");
+        assert_eq!(b.target_dataset_version, "0.2.1");
         let ids: Vec<&str> = b.questions.iter().map(|q| q.id.as_str()).collect();
         assert_eq!(ids, ["cq-02", "cq-03", "cq-04", "cq-05", "cq-06", "cq-07"]);
     }

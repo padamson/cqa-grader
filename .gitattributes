@@ -1,3 +1,7 @@
 # The trace schema is compared byte for byte with the generated one, so a
 # CRLF checkout (Windows runners) must not rewrite it.
 schemas/*.json text eol=lf
+
+# The test graphs are panschema output, compared byte for byte with a fresh
+# generation by the Dogfood workflow.
+tests/fixtures/*.ttl text eol=lf
