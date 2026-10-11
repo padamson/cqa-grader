@@ -14,27 +14,27 @@ pub fn Features() -> impl IntoView {
                 <FeatureCard
                     id="feature-anchors"
                     title="Anchors reached"
-                    blurb="Every record the key says an answer must reach is among what the system retrieved. Recall and precision are reported for every question; recall of one is required, precision never is."
+                    blurb="Every record the key says an answer needs is among what the system retrieved. Recall and precision are reported for each question; recall must be 1, and precision is reported but never required."
                 />
                 <FeatureCard
                     id="feature-citations"
                     title="Citations grounded"
-                    blurb="Nothing is cited that was not retrieved, and an answer that must rest on records cites them."
+                    blurb="Every cited record was retrieved, and an answer the key says must rest on records cites them."
                 />
                 <FeatureCard
                     id="feature-absence"
-                    title="Closed-world negatives"
-                    blurb="Where the key says nothing on record joins two records, the system has to reach both and then say so. Reaching them and saying nothing is not an answer."
+                    title="\"None on record\" answers"
+                    blurb="Some questions are correctly answered \"none on record\". The system has to reach the records the question names and then say so; reaching them and saying nothing fails."
                 />
                 <FeatureCard
-                    id="feature-kinds"
-                    title="One check per answer kind"
-                    blurb="Lookup, comparison, synthesis, attribution, closed-world negative: the grade dispatches on what the question asks for, and a question with two kinds must pass both."
+                    id="feature-exit-codes"
+                    title="Exit codes and reports"
+                    blurb="0 when every question passes, 1 when any fails, and 2 when the input can't be graded: a trace for another benchmark, a field the format doesn't define, or two attempts at one question. --report also writes the grade as JSON."
                 />
                 <FeatureCard
                     id="feature-baseline"
                     title="A naive baseline"
-                    blurb="Label linking and a hop of lookup, which never reads the key. It gives a benchmark's CI a student, and a real retriever a precision floor to beat."
+                    blurb="Finds records by label and looks one link away, never reading the key. It gives a benchmark's CI something to grade, and a real retriever a precision to beat."
                 />
                 <FeatureCard
                     id="feature-schema"

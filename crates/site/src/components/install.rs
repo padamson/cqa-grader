@@ -10,7 +10,7 @@ pub fn Install() -> impl IntoView {
     let is_dev = crate::version::is_dev();
 
     view! {
-        <section id="install" class="mx-auto max-w-3xl px-6 py-12">
+        <section id="install" class="mx-auto max-w-5xl px-6 py-12">
             <h2 class="mb-4 text-2xl font-bold text-chalk-yellow">"Install"</h2>
             {if is_dev {
                 view! {
@@ -28,9 +28,9 @@ pub fn Install() -> impl IntoView {
                 <code class="text-chalk-yellow">"grade"</code>
                 " scores a trace, "
                 <code class="text-chalk-yellow">"baseline"</code>
-                " runs the naive retriever over a graph, and "
+                " runs a deliberately naive retriever over a graph, and "
                 <code class="text-chalk-yellow">"trace-schema"</code>
-                " prints the JSON Schema a trace is held to. It reads Turtle and JSON and "
+                " prints the JSON Schema a trace must follow. It reads Turtle and JSON and "
                 "needs nothing else installed."
             </p>
         </section>

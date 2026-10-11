@@ -10,6 +10,7 @@ mod how_it_works;
 pub mod icons;
 mod install;
 mod roadmap;
+mod three_uses;
 mod version_switcher;
 
 pub use code_block::CodeBlock;
@@ -23,4 +24,5 @@ pub use hero::Hero;
 pub use how_it_works::HowItWorks;
 pub use install::Install;
 pub use roadmap::Roadmap;
+pub use three_uses::ThreeUses;
 pub use version_switcher::VersionSwitcher;

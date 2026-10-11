@@ -2,22 +2,22 @@
   "milestone": "0.1.0",
   "next_milestone": "0.2.0",
   "themes": {
-    "0.1.0": "Graphs as they are published",
-    "0.2.0": "A pass that means something"
+    "0.1.0": "Ready for the benchmarks being written now",
+    "0.2.0": "Passing takes more than retrieving everything"
   },
   "items": [
     {
       "id": "roadmap-now-false-absence",
-      "title": "False absence fails",
-      "blurb": "Saying \"none on record\" for a question whose answer is on record fails the attempt, and the baseline stops doing it.",
+      "title": "\"None on record\" only where it's true",
+      "blurb": "An attempt that says \"none on record\" for a question whose answer is on record fails, and the baseline stops saying it there.",
       "horizon": "now",
       "acceptance": [
         {
-          "criterion": "An attempt that asserts absence on a question that is not a closed-world negative fails",
+          "criterion": "An attempt that says \"none on record\" for a question whose answer is on record fails",
           "test": "src/grade.rs::absence_asserted_on_a_positive_question_fails"
         },
         {
-          "criterion": "The baseline asserts absence only on wine's closed-world negative",
+          "criterion": "The baseline says \"none on record\" only for wine's one question whose answer it is",
           "test": "tests/integration.rs::the_baseline_asserts_absence_only_where_nothing_joins"
         },
         {
@@ -28,8 +28,8 @@
     },
     {
       "id": "roadmap-now-graphs",
-      "title": "Several graph files, one store",
-      "blurb": "baseline --graph repeats, so a schema that publishes one Turtle file per dataset is graded without concatenating them first.",
+      "title": "Grade a graph published as several files",
+      "blurb": "baseline --graph can repeat, so a schema that publishes one Turtle file per dataset no longer has to be concatenated first.",
       "horizon": "now",
       "acceptance": [
         {
@@ -44,16 +44,16 @@
     },
     {
       "id": "roadmap-now-one-anchor",
-      "title": "One-anchor absence in the baseline",
-      "blurb": "When a question names one record and a class, and no instance of that class is adjacent to the record, the baseline says none on record.",
+      "title": "\"None on record\" questions about one record",
+      "blurb": "Some of these questions name one record and a kind of record: \"Is there a purchase of cotija?\" The baseline answers \"none on record\" when no record of that kind is linked to the one named.",
       "horizon": "now",
       "acceptance": [
         {
-          "criterion": "Absence is asserted when the question names one record and a class with no instance adjacent to it",
+          "criterion": "The baseline says \"none on record\" when the question names one record and a class, and no instance of the class is adjacent to it",
           "test": "src/baseline.rs::one_record_and_a_class_with_nothing_adjacent_is_absence"
         },
         {
-          "criterion": "Absence is not asserted when an instance of the class is adjacent",
+          "criterion": "It does not when an instance of the class is adjacent",
           "test": "src/baseline.rs::an_adjacent_instance_of_the_class_is_not_absence"
         },
         {
@@ -65,7 +65,7 @@
     {
       "id": "roadmap-next-budget",
       "title": "A retrieval budget",
-      "blurb": "Recall within a budget of retrieved records, so retrieving the whole graph no longer passes. The budget may belong to the benchmark rather than the grader.",
+      "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. The cap may belong in the benchmark rather than the grader.",
       "horizon": "next",
       "acceptance": [
         {
@@ -77,7 +77,7 @@
     {
       "id": "roadmap-next-citation-precision",
       "title": "Citation precision",
-      "blurb": "Citing everything retrieved no longer passes attribution.",
+      "blurb": "Citing everything that was retrieved stops passing attribution.",
       "horizon": "next",
       "acceptance": [
         {
@@ -88,8 +88,8 @@
     },
     {
       "id": "roadmap-next-model",
-      "title": "Benchmarks read through the LinkML model",
-      "blurb": "The key is read from its YAML against the cqa schema through panschema's model crate, not round-tripped through Turtle.",
+      "title": "Read the answer key from its source",
+      "blurb": "The key is read from the benchmark's YAML, through panschema's model of the cqa schema, instead of from its Turtle rendering.",
       "horizon": "next",
       "acceptance": [
         {
@@ -107,13 +107,25 @@
     {
       "id": "roadmap-later-traversal",
       "title": "Baseline traversal through panschema",
-      "blurb": "The baseline expands entry points with panschema's subgraph primitive, and oxigraph leaves the grading path.",
+      "blurb": "The baseline looks up neighboring records with panschema's subgraph search instead of its own SPARQL queries.",
       "horizon": "later"
     },
     {
       "id": "roadmap-later-judge",
       "title": "Judging the answer",
       "blurb": "The second tier: the prose answer judged against ground_truth, behind a flag and out of CI.",
+      "horizon": "later"
+    },
+    {
+      "id": "roadmap-later-scores",
+      "title": "Scores across a benchmark",
+      "blurb": "Mean recall and precision over every question, so a retriever's progress shows as one number per run.",
+      "horizon": "later"
+    },
+    {
+      "id": "roadmap-later-ranked",
+      "title": "Ranked retrieval",
+      "blurb": "A trace that orders what it retrieved, for measures like MRR and nDCG that reward putting the anchors first. A trace is a set today, so this changes the format.",
       "horizon": "later"
     }
   ]

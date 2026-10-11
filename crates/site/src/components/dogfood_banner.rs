@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-use crate::links::{CLI_TEST, WINE};
+use crate::links::{CI_RUNS, ONTOLOGY_TEMPLATE};
 
 #[component]
 pub fn DogfoodBanner() -> impl IntoView {
@@ -9,14 +9,16 @@ pub fn DogfoodBanner() -> impl IntoView {
             <div class="rounded-2xl border-2 border-dashed border-chalk-yellow/60 p-8 text-center">
                 <h2 class="text-2xl font-bold text-chalk-yellow">"Graded in its own CI"</h2>
                 <p class="mx-auto mt-3 max-w-2xl text-chalk-50/80">
-                    "On every push, the baseline runs over the published graph of "
-                    <a href=WINE class="text-chalk-blue underline hover:text-chalk-50">"wine"</a>
-                    ", a worked-example ontology, and the build fails unless it passes every "
-                    "question in wine's benchmark."
+                    "On every push, the "
+                    <code class="text-chalk-yellow">"baseline_then_grade_passes_wine"</code>
+                    " test runs the baseline over the published graph of "
+                    <a href=ONTOLOGY_TEMPLATE class="text-chalk-blue underline hover:text-chalk-50">"wine"</a>
+                    ", grades it, and fails the build unless every question in wine's "
+                    "benchmark passes."
                 </p>
                 <p class="mt-6 text-sm font-semibold">
-                    <a href=CLI_TEST class="text-chalk-blue underline hover:text-chalk-50">
-                        "See the test that runs it"
+                    <a href=CI_RUNS class="text-chalk-blue underline hover:text-chalk-50">
+                        "See the CI runs"
                     </a>
                 </p>
             </div>

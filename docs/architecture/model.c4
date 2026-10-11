@@ -196,6 +196,12 @@ benchmark.'
         }
         link ../../crates/site/src/components/roadmap.rs
       }
+      three_uses = component 'three_uses' {
+        metadata {
+          path 'crates/site/src/components/three_uses.rs'
+        }
+        link ../../crates/site/src/components/three_uses.rs
+      }
       version_switcher = component 'version_switcher' {
         metadata {
           path 'crates/site/src/components/version_switcher.rs'
@@ -268,14 +274,15 @@ to know that: every other asset path is relative.'
   cqa_grader_site.app -[uses]-> cqa_grader_site.components.how_it_works 'HowItWorks'
   cqa_grader_site.app -[uses]-> cqa_grader_site.components.install 'Install'
   cqa_grader_site.app -[uses]-> cqa_grader_site.components.roadmap 'Roadmap'
+  cqa_grader_site.app -[uses]-> cqa_grader_site.components.three_uses 'ThreeUses'
   cqa_grader_site.app -[uses]-> cqa_grader_site.components.version_switcher 'VersionSwitcher'
-  cqa_grader_site.components.dogfood_banner -[uses]-> cqa_grader_site.links 'CLI_TEST, WINE'
+  cqa_grader_site.components.dogfood_banner -[uses]-> cqa_grader_site.links 'CI_RUNS, ONTOLOGY_TEMPLATE'
   cqa_grader_site.components.example -[uses]-> cqa_grader_site.components.code_block 'CodeBlock'
   cqa_grader_site.components.example -[uses]-> cqa_grader_site.snippets 'snippets'
   cqa_grader_site.components.features -[uses]-> cqa_grader_site.components.code_block 'CodeBlock'
   cqa_grader_site.components.features -[uses]-> cqa_grader_site.components.feature_card 'FeatureCard'
   cqa_grader_site.components.features -[uses]-> cqa_grader_site.snippets 'snippets'
-  cqa_grader_site.components.footer -[uses]-> cqa_grader_site.links 'ARCHITECTURE, ASBUILT, CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB, PLAYWRIGHT_RUST'
+  cqa_grader_site.components.footer -[uses]-> cqa_grader_site.links 'ARCHITECTURE, ASBUILT, CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB'
   cqa_grader_site.components.footer -[calls]-> cqa_grader_site.version 'is_dev'
   cqa_grader_site.components.hero -[uses]-> cqa_grader_site.components.icons_ 'Icon, icons'
   cqa_grader_site.components.hero -[uses]-> cqa_grader_site.links 'ARCHITECTURE, CI_BADGE, CQA_SCHEMA, CRATES_IO, DOCS_RS, GITHUB'
@@ -290,6 +297,7 @@ to know that: every other asset path is relative.'
   cqa_grader_site.components.roadmap -[uses]-> cqa_grader_site.links 'CHANGELOG, ISSUES, SOURCE'
   cqa_grader_site.components.roadmap -[calls]-> cqa_grader_site.roadmap 'Criterion, Horizon, Item, Roadmap, Status, current_url, roadmap'
   cqa_grader_site.components.roadmap -[calls]-> cqa_grader_site.version 'fetch_json, is_dev'
+  cqa_grader_site.components.three_uses -[uses]-> cqa_grader_site.links 'N_AND_M, ONTOLOGY_TEMPLATE'
   cqa_grader_site.components.version_switcher -[calls]-> cqa_grader_site.version 'SITE_VERSION, fetch_json, is_dev, manifest_url, snapshot_url'
   cqa_grader_site.roadmap -[calls]-> cqa_grader_site.version 'snapshot_url'
 }

@@ -51,7 +51,7 @@ pub fn Roadmap() -> impl IntoView {
                     data.as_ref()
                         .map(|data| {
                             view! {
-                                <p class="mt-2 mb-6 max-w-3xl text-sm text-chalk-50/80">
+                                <p class="mt-2 mb-6 text-sm text-chalk-50/80">
                                     {note}
                                     {format!(
                                         "Now is {}, Next is {}, and Later is under consideration beyond that. ",

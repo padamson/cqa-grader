@@ -33,15 +33,19 @@ pub fn Hero() -> impl IntoView {
                 </span>
             </p>
             <h1 id="hero-title" class="text-4xl font-bold tracking-tight text-chalk-50 sm:text-5xl">
-                "Grade what a retriever found"
+                "Grade what a graph retriever found"
             </h1>
             <p id="hero-tagline" class="mt-5 max-w-2xl text-lg text-chalk-50/80">
-                "cqa-grader grades what a system retrieved and cited against the competency "
-                "questions a knowledge graph says it can answer: the records each answer had to "
-                "reach, the ones it had to rest on, and the absences it had to report."
+                "An ontology's competency questions say what its knowledge graph must be able "
+                "to answer. A "
+                <a href=CQA_SCHEMA class="text-chalk-blue underline hover:text-chalk-50">"cqa"</a>
+                " benchmark gives each question an answer key: the records a "
+                "correct answer reaches and the ones it cites. cqa-grader checks what a system "
+                "retrieved and cited against that key, question by question."
             </p>
             <p id="hero-rules" class="mt-3 text-sm text-chalk-50/60">
-                "Deterministic. No model in the loop. Runs in CI."
+                "No language model in the loop: the same trace gets the same grade every time, "
+                "so it can gate CI."
             </p>
 
             <div id="hero-badges" class="mt-7 flex flex-wrap items-center justify-center gap-2">

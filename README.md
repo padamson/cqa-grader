@@ -9,23 +9,33 @@
   <a href="https://github.com/padamson/cqa-grader/actions?query=branch%3Amain"><img src="https://img.shields.io/github/check-runs/padamson/cqa-grader/main?label=CI&amp;logo=github" alt="CI"></a>
 </p>
 
-Grades what a system did with a competency question against the
-[cqa](https://github.com/padamson/cqa-schema) benchmark that specifies
-the correct answer.
+Grades what a graph retriever found.
 
-A cqa benchmark pairs each question with the records a correct answer
-must reach (`expected_anchors`), the records it must rest on
-(`expected_citations`), the kinds of answering it calls for
-(`answer_kind`), and the answer in prose (`ground_truth`). The graph's
-own repository publishes the benchmark as a Turtle file. This tool reads
-that file, reads a *trace* of what some system retrieved and cited for
-each question, and scores one against the other. The trace is the
-contract: a system emits one, and nothing about how it produced it
-crosses into the grader.
+An ontology's competency questions say what its knowledge graph must be
+able to answer. A [cqa](https://github.com/padamson/cqa-schema)
+benchmark gives each question an answer key: the records a correct
+answer must reach (`expected_anchors`), the ones it must cite
+(`expected_citations`), the kind of answer it is (`answer_kind`), and
+the answer in prose (`ground_truth`). The graph's own repository
+publishes the benchmark as a Turtle file. cqa-grader reads that file and
+a *trace* of what some system retrieved and cited for each question, and
+checks one against the other. Only the trace crosses over: nothing about
+how the system produced it reaches the grader.
+
+It has three uses. Someone developing an ontology the way Noy and
+McGuinness's *Ontology Development 101* describes writes an example
+instance graph and a benchmark for its competency questions, and the
+baseline shows whether the example answers them all (the
+[ontology-authoring-template](https://github.com/padamson/ontology-authoring-template)'s
+wine ontology carries both). A graph's repository runs the baseline in
+CI to show that every question can be answered from the published
+graph. Someone building a retriever has their system write a trace and
+grades it against the benchmark.
 
 Two tiers were always the plan. The deterministic tier is here: anchors
-reached, citations grounded and rested on, absence asserted where the key
-claims one. It needs no model and runs in CI. Judging a prose answer
+reached, citations grounded and cited, and "none on record" said where
+the key says nothing is. It needs no language model, so the same trace
+always gets the same grade and it can gate CI. Judging a prose answer
 against `ground_truth` needs a judge and is not built yet; the trace
 carries an `answer` field for when it is.
 

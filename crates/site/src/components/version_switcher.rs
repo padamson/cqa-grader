@@ -84,7 +84,8 @@ fn banner_for(is_dev: bool, current: &str, latest: &str) -> Option<Banner> {
         let link =
             (!latest.is_empty()).then(|| (format!("Go to v{latest} →"), snapshot_url(latest)));
         Some(Banner {
-            message: "Unreleased dev build (main) — APIs may change.".to_string(),
+            message: "Unreleased build of main: the CLI and trace format may still change."
+                .to_string(),
             link,
         })
     } else if newer(latest, current) {
