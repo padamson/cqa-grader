@@ -184,6 +184,23 @@ fn split_wine(dir: &Path) -> (PathBuf, PathBuf) {
 }
 
 #[test]
+fn an_unreadable_trace_names_its_cause_once() {
+    // The cause is the error's source, so a chain printer shows it once;
+    // repeating it in the message would show it twice.
+    let trace = tempdir().join("trace.json");
+    std::fs::write(&trace, "{}").unwrap();
+    let out = cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--trace", trace.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("trace.json"), "{stderr}");
+    assert_eq!(stderr.matches("missing field").count(), 1, "{stderr}");
+}
+
+#[test]
 fn trace_schema_prints_json_schema() {
     cli()
         .arg("trace-schema")

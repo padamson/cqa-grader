@@ -50,11 +50,13 @@ pub enum Error {
     /// The trace does not fit the benchmark it is graded against.
     #[error("trace: {0}")]
     Trace(String),
-    /// Reading or writing a file failed.
-    #[error("io: {0}")]
+    /// Reading or writing a file failed. The cause is the error's source,
+    /// so it is not repeated in this message.
+    #[error("io")]
     Io(#[from] std::io::Error),
-    /// A trace or report could not be (de)serialized.
-    #[error("json: {0}")]
+    /// A trace or report could not be (de)serialized. The cause is the
+    /// error's source, so it is not repeated in this message.
+    #[error("json")]
     Json(#[from] serde_json::Error),
     /// One of several input files failed to read or load. The cause is
     /// the error's source, so it is not repeated in this message.
