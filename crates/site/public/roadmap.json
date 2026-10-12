@@ -49,10 +49,11 @@
       "title": "A trace names the graph it was run over",
       "blurb": "A trace records the dataset and version it retrieved over, and grading refuses one whose dataset or version is not the benchmark's target, so a trace from an older graph is not graded against the current key.",
       "horizon": "now",
+      "status": "done",
       "acceptance": [
         {
           "criterion": "A trace whose dataset or version differs from the benchmark's target is refused with exit code 2",
-          "test": "tests/cli.rs::a_trace_for_another_dataset_version_is_a_usage_error"
+          "test": "tests/cli.rs::a_trace_for_another_dataset_or_version_is_a_usage_error"
         },
         {
           "criterion": "The baseline records the dataset and version of the graph it was given, never the benchmark's",
@@ -139,6 +140,28 @@
           "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
         }
       ]
+    },
+    {
+      "id": "roadmap-next-schema-version",
+      "title": "A trace names the schema its graph conforms to",
+      "blurb": "The benchmark pins its target schema and that schema's version as well as its dataset, and a published graph states both on its owl:Ontology. The trace records them too, the baseline reads them from the graph it was given, and grading refuses a trace whose schema or schema version is not the benchmark's target.",
+      "horizon": "next",
+      "acceptance": [
+        {
+          "criterion": "A trace whose schema or schema version differs from the benchmark's target is refused with exit code 2",
+          "test": "tests/cli.rs::a_trace_for_another_schema_version_is_a_usage_error"
+        },
+        {
+          "criterion": "The baseline reads the schema and its version from the graph's owl:Ontology, never from the benchmark",
+          "test": "tests/cli.rs::the_baseline_reads_the_schema_from_the_graph"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-later-graph-identity",
+      "title": "The baseline reads the graph's name from the graph",
+      "blurb": "A published graph states which dataset it holds and at what version, so the baseline reads them instead of taking --dataset and --dataset-version, which stay as overrides. Waits on panschema stating them.",
+      "horizon": "later"
     },
     {
       "id": "roadmap-later-traversal",

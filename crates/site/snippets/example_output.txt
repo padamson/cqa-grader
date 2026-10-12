@@ -1,4 +1,4 @@
-wine-benchmark: grading cqa-grader baseline 0.1.0
+wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1
   cq-02 lookup                  ok    recall 1.00  precision 0.02  retrieved 46
   cq-03 closed-world-negative   FAIL  recall 1.00  precision 0.18  retrieved 11
     closed-world-negative: unconnected anchors reached but the attempt does not assert absence

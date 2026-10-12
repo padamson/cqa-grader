@@ -1,6 +1,7 @@
 {
   "trace_format": "0.1",
   "benchmark": "wine-benchmark",
+  "graph": { "dataset": "worked-example", "dataset_version": "0.2.1" },
   "system": { "name": "my-retriever", "version": "0.3.0" },
   "attempts": [
     {

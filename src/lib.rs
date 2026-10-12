@@ -36,7 +36,7 @@ pub mod trace;
 pub use baseline::Baseline;
 pub use benchmark::{AnswerKind, Benchmark, Question};
 pub use grade::{Check, QuestionResult, Report, Summary, grade};
-pub use trace::{Attempt, System, TRACE_FORMAT, Trace};
+pub use trace::{Attempt, Graph, System, TRACE_FORMAT, Trace};
 
 /// Errors this crate reports.
 #[derive(Debug, thiserror::Error)]

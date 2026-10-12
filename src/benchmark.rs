@@ -16,6 +16,7 @@ use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 
 use crate::rdf::{load_turtle, select};
+use crate::trace::Graph;
 use crate::{Error, Result};
 
 const CQA: &str = "https://w3id.org/cqa/";
@@ -308,6 +309,14 @@ impl Benchmark {
             target_dataset_version: row.require("tdv")?,
             questions,
         })
+    }
+
+    /// The graph the anchors resolve in: the target dataset at its version.
+    pub fn target_graph(&self) -> Graph {
+        Graph {
+            dataset: self.target_dataset.clone(),
+            dataset_version: self.target_dataset_version.clone(),
+        }
     }
 
     /// Look a question up by its `cqa:id`.

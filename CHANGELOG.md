@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - `baseline --graph` can repeat, for a graph published as several files.
   Every file loads into one store (`Baseline::from_paths`), and a file that
   fails to read or parse is named in the error.
+- A trace names the graph it was run over (`graph`: `dataset` and
+  `dataset_version`), and grading refuses one whose graph is not the
+  benchmark's `target_dataset` at its `target_dataset_version`, with exit
+  code 2. A pre-release grades as its release: `0.2.1-dev` matches a key
+  pinned to `0.2.1`, and the other way round. `baseline` takes the two as
+  `--dataset` and `--dataset-version` and records them as given, never
+  copying the benchmark's.
 - Unusable input is refused with exit code 2 rather than graded: a
   benchmark question missing its id, text or ground truth, two questions
   sharing an id, a closed-world negative with no unconnected anchors, a

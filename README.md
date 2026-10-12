@@ -56,7 +56,7 @@ cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --format json
 ```
 
 ```text
-wine-benchmark: grading cqa-grader baseline 0.1.0
+wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1
   cq-02 lookup                  ok    recall 1.00  precision 0.02  retrieved 46
   cq-03 closed-world-negative   FAIL  recall 1.00  precision 0.18  retrieved 11
     closed-world-negative: unconnected anchors reached but the attempt does not assert absence
@@ -71,12 +71,17 @@ Run the naive baseline retriever over a graph, so a benchmark's CI has a
 student to grade:
 
 ```bash
-cqa-grader baseline --graph wine.ttl --benchmark wine-benchmark.ttl --output trace.json
+cqa-grader baseline --graph wine.ttl --dataset worked-example --dataset-version 0.2.1 \
+  --benchmark wine-benchmark.ttl --output trace.json
 ```
 
 A graph published as several files (one Turtle file per dataset, say) takes
 one `--graph` per file. They load into one store, so there is no need to
-concatenate them first.
+concatenate them first. `--dataset` and `--dataset-version` name what those
+files hold, the way the benchmark's target names it, and the trace records
+them as given. A published graph does not name its dataset, so the baseline
+takes them on trust; grading checks them against the benchmark. In a CI
+step they move with each release.
 
 Print the JSON Schema for the trace format:
 
@@ -90,6 +95,7 @@ cqa-grader trace-schema
 {
   "trace_format": "0.1",
   "benchmark": "wine-benchmark",
+  "graph": { "dataset": "worked-example", "dataset_version": "0.2.1" },
   "system": { "name": "my-retriever", "version": "0.3.0" },
   "attempts": [
     {
@@ -105,11 +111,17 @@ cqa-grader trace-schema
 }
 ```
 
-`question` is the benchmark's `cqa:id` for the question. `retrieved` and
-`cited` are IRIs into the target graph, exactly as the benchmark writes
-its anchors. `asserts_absence` is how a system says "none on record",
-which is what a closed-world negative is graded on. `answer` (optional)
-is the prose answer, unread by this tier. The schema is in
+`graph` names the dataset and version the system ran over, the way the
+benchmark's `target_dataset` and `target_dataset_version` name its target.
+Grading refuses a trace whose `graph` differs (exit code 2), since anchors
+written against one version of a dataset say nothing about retrieval over
+another. A pre-release counts as its release, so a graph built on `main` as
+`0.2.1-dev` grades against a key pinned to `0.2.1`. `question` is the
+benchmark's `cqa:id` for the question. `retrieved` and `cited` are IRIs into
+the target graph, exactly as the benchmark writes its anchors.
+`asserts_absence` is how a system says "none on record", which is what a
+closed-world negative is graded on. `answer` (optional) is the prose answer,
+unread by this tier. The schema is in
 [schemas/trace.schema.json](schemas/trace.schema.json).
 
 ### The checks
@@ -162,8 +174,10 @@ would say "none on record" for both. Whether a benchmark's negatives hold
 is shown against the graph by panschema's `verify --strict`; the baseline
 shows their anchors can be reached.
 
-It never reads the key. A test blanks every anchor and checks the
-attempts do not change.
+It never reads the key, or the benchmark's target. A test blanks every
+anchor along with the benchmark's target schema, dataset, and their
+versions, and checks the trace does not change. The trace names the graph
+the baseline was given, never the one the benchmark targets.
 
 ## Library
 

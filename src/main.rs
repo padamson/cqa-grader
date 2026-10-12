@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use cqa_grader::{Baseline, Benchmark, Trace, grade};
+use cqa_grader::{Baseline, Benchmark, Graph, Trace, grade};
 
 /// Grade a system's retrieval trace against a cqa benchmark.
 #[derive(Parser)]
@@ -37,6 +37,14 @@ enum Command {
         /// load into one store.
         #[arg(long, required = true)]
         graph: Vec<PathBuf>,
+        /// The dataset those files hold, as the benchmark's
+        /// `target_dataset` would name it. Recorded in the trace, which
+        /// grading refuses unless it is the benchmark's target.
+        #[arg(long)]
+        dataset: String,
+        /// The version of that dataset.
+        #[arg(long)]
+        dataset_version: String,
         /// The benchmark whose questions to attempt. Only question text is read.
         #[arg(long)]
         benchmark: PathBuf,
@@ -97,6 +105,8 @@ fn run() -> Result<ExitCode> {
         }
         Command::Baseline {
             graph,
+            dataset,
+            dataset_version,
             benchmark,
             hops,
             output,
@@ -104,7 +114,11 @@ fn run() -> Result<ExitCode> {
             let b = Benchmark::from_path(&benchmark)
                 .with_context(|| format!("reading benchmark {}", benchmark.display()))?;
             let retriever = Baseline::from_paths(&graph).context("reading the graph")?;
-            let trace = retriever.run(&b, hops)?;
+            let over = Graph {
+                dataset,
+                dataset_version,
+            };
+            let trace = retriever.run(&b, over, hops)?;
             match output {
                 Some(path) => trace
                     .write(&path)

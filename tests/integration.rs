@@ -8,7 +8,7 @@ use common::fixture_text as fixture;
 
 fn wine() -> (Benchmark, Baseline) {
     (
-        Benchmark::from_turtle(&fixture("wine-benchmark.ttl")).unwrap(),
+        common::wine_benchmark(),
         Baseline::from_turtle(&fixture("wine.ttl")).unwrap(),
     )
 }
@@ -18,7 +18,9 @@ fn the_baseline_fails_only_closed_world_negatives() {
     // It reaches every anchor and never asserts absence, so a negative
     // fails its own check and nothing else does.
     let (benchmark, baseline) = wine();
-    let trace = baseline.run(&benchmark, 1).unwrap();
+    let trace = baseline
+        .run(&benchmark, benchmark.target_graph(), 1)
+        .unwrap();
     let report = grade(&benchmark, &trace).unwrap();
     for r in &report.results {
         let failed: Vec<&str> = r
@@ -39,12 +41,19 @@ fn the_baseline_fails_only_closed_world_negatives() {
 #[test]
 fn the_baseline_never_reads_the_key() {
     // Same questions, everything but the id and the text blanked: the
-    // attempts must not change. Answer kinds are blanked too, or a
-    // baseline that asserted absence because the key says
-    // closed-world-negative would pass.
+    // trace must not change. Answer kinds are blanked too, or a baseline
+    // that asserted absence because the key says closed-world-negative
+    // would pass; so are the target pins, or one that copied the
+    // benchmark's dataset into its trace would.
     let (benchmark, baseline) = wine();
-    let honest = baseline.run(&benchmark, 1).unwrap();
+    let honest = baseline
+        .run(&benchmark, benchmark.target_graph(), 1)
+        .unwrap();
     let mut blind = benchmark.clone();
+    blind.target_schema.clear();
+    blind.target_schema_version.clear();
+    blind.target_dataset.clear();
+    blind.target_dataset_version.clear();
     for q in &mut blind.questions {
         q.ground_truth.clear();
         q.answer_kinds.clear();
@@ -53,15 +62,17 @@ fn the_baseline_never_reads_the_key() {
         q.unconnected_anchors.clear();
         q.connecting_class = None;
     }
-    let blinded = baseline.run(&blind, 1).unwrap();
-    assert_eq!(honest.attempts, blinded.attempts);
+    let blinded = baseline.run(&blind, benchmark.target_graph(), 1).unwrap();
+    assert_eq!(honest, blinded);
 }
 
 #[test]
 fn the_baseline_never_asserts_absence() {
     let (benchmark, baseline) = wine();
     for hops in 0..=2 {
-        let trace = baseline.run(&benchmark, hops).unwrap();
+        let trace = baseline
+            .run(&benchmark, benchmark.target_graph(), hops)
+            .unwrap();
         let asserted: Vec<&str> = trace
             .attempts
             .iter()
@@ -79,7 +90,9 @@ fn entry_points_alone_are_not_enough() {
     // recommendation that joins them is one edge away, so this must fail.
     // Recorded so a change in the fixture or the linker is noticed.
     let (benchmark, baseline) = wine();
-    let trace = baseline.run(&benchmark, 0).unwrap();
+    let trace = baseline
+        .run(&benchmark, benchmark.target_graph(), 0)
+        .unwrap();
     let report = grade(&benchmark, &trace).unwrap();
     let failed: Vec<&str> = report
         .results

@@ -38,7 +38,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::benchmark::{AnswerKind, Benchmark, Question};
-use crate::trace::{Attempt, System, Trace, write_json};
+use crate::trace::{Attempt, Graph, System, Trace, write_json};
 use crate::{Error, Result};
 
 /// One check on one question.
@@ -126,6 +126,9 @@ pub struct Summary {
 pub struct Report {
     /// The benchmark's `cqa:id`.
     pub benchmark: String,
+    /// The graph the graded attempts were made over, as the trace names
+    /// it. Grading has checked it is the benchmark's target.
+    pub graph: Graph,
     /// The system that was graded.
     pub system: System,
     /// Whether every question passed.
@@ -160,8 +163,12 @@ impl Report {
             .map(|v| format!(" {v}"))
             .unwrap_or_default();
         out.push_str(&format!(
-            "{}: grading {}{}\n",
-            self.benchmark, self.system.name, version
+            "{}: grading {}{} over {} {}\n",
+            self.benchmark,
+            self.system.name,
+            version,
+            self.graph.dataset,
+            self.graph.dataset_version
         ));
         let width = self
             .results
@@ -207,17 +214,45 @@ fn kinds_label(kinds: &[AnswerKind]) -> String {
         .join("+")
 }
 
+/// The release a version belongs to: `x.y.z-<anything>` is `x.y.z`, so a
+/// graph built on the way to a release (`0.1.0-dev`) grades against a key
+/// pinned to it. Any other string is its own release, so `0.1.0dev` and
+/// `v0.1.0` stay distinct from `0.1.0`.
+fn release(version: &str) -> &str {
+    match version.split_once('-') {
+        Some((core, pre))
+            if !pre.is_empty()
+                && core.split('.').count() == 3
+                && core
+                    .split('.')
+                    .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) =>
+        {
+            core
+        }
+        _ => version,
+    }
+}
+
 /// Grade a trace against a benchmark.
 ///
-/// Fails with [`Error::Trace`] when the trace fails [`Trace::check`] or
-/// names a different benchmark; a trace for a different benchmark is a
-/// usage error, not a failed grade.
+/// Fails with [`Error::Trace`] when the trace fails [`Trace::check`],
+/// names a different benchmark, or was run over a dataset or version other
+/// than the benchmark's target. Each is a usage error, not a failed grade.
 pub fn grade(benchmark: &Benchmark, trace: &Trace) -> Result<Report> {
     trace.check()?;
     if trace.benchmark != benchmark.id {
         return Err(Error::Trace(format!(
             "trace is for benchmark {:?}, grading against {:?}",
             trace.benchmark, benchmark.id
+        )));
+    }
+    let (ran, target) = (&trace.graph, benchmark.target_graph());
+    if ran.dataset != target.dataset
+        || release(&ran.dataset_version) != release(&target.dataset_version)
+    {
+        return Err(Error::Trace(format!(
+            "trace was run over dataset {:?} version {:?}, the benchmark targets {:?} version {:?}",
+            ran.dataset, ran.dataset_version, target.dataset, target.dataset_version
         )));
     }
 
@@ -251,6 +286,7 @@ pub fn grade(benchmark: &Benchmark, trace: &Trace) -> Result<Report> {
     };
     Ok(Report {
         benchmark: benchmark.id.clone(),
+        graph: trace.graph.clone(),
         system: trace.system.clone(),
         passed: summary.failed == 0,
         summary,
@@ -423,7 +459,7 @@ mod tests {
     }
 
     fn trace_with(benchmark: &Benchmark, attempts: Vec<Attempt>) -> Trace {
-        let mut t = Trace::new(benchmark.id.clone(), system());
+        let mut t = Trace::new(benchmark.id.clone(), benchmark.target_graph(), system());
         t.attempts = attempts;
         t
     }
@@ -644,6 +680,36 @@ mod tests {
     }
 
     #[test]
+    fn a_trace_over_another_dataset_or_version_is_an_error() {
+        // Either one moved is enough: the same dataset at another version
+        // is a different set of records. The message names both graphs, so
+        // the reader sees what the trace said as well as what was wanted.
+        let b = wine();
+        let target = b.target_graph();
+        let moved_dataset = Graph {
+            dataset: "other".into(),
+            ..target.clone()
+        };
+        let moved_version = Graph {
+            dataset_version: "0.0.1".into(),
+            ..target.clone()
+        };
+        for (moved, value) in [(moved_dataset, "other"), (moved_version, "0.0.1")] {
+            let mut t = trace_with(&b, Vec::new());
+            t.graph = moved;
+            match grade(&b, &t) {
+                Err(Error::Trace(m)) => assert!(
+                    [value, &target.dataset, &target.dataset_version]
+                        .iter()
+                        .all(|v| m.contains(&format!("{v:?}"))),
+                    "{value}: {m}"
+                ),
+                other => panic!("{value}: expected Error::Trace, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
     fn citations_rest_runs_where_citations_are_expected_without_attribution() {
         let b = wine();
         let attempts = b.questions.iter().map(perfect).collect();
@@ -700,6 +766,52 @@ mod tests {
         assert!(
             text.ends_with("6 questions: 6 passed, 0 failed\n"),
             "{text}"
+        );
+    }
+
+    #[test]
+    fn a_pre_release_grades_as_its_release() {
+        // A graph on `main` says `0.2.1-dev` while the key pins `0.2.1`,
+        // and the other way round; either is the same release.
+        let b = wine();
+        let pinned = b.target_dataset_version.clone();
+        let mut t = trace_with(&b, Vec::new());
+        t.graph.dataset_version = format!("{pinned}-dev");
+        assert!(grade(&b, &t).is_ok(), "trace {pinned}-dev, key {pinned}");
+        let mut dev = b.clone();
+        dev.target_dataset_version = format!("{pinned}-dev");
+        let t = trace_with(&b, Vec::new());
+        assert!(grade(&dev, &t).is_ok(), "trace {pinned}, key {pinned}-dev");
+    }
+
+    #[test]
+    fn only_a_dashed_suffix_on_three_numbers_is_a_pre_release() {
+        for (version, expected) in [
+            ("0.2.1-dev", "0.2.1"),
+            ("0.2.1-alpha.1", "0.2.1"),
+            ("10.20.30-rc-2", "10.20.30"),
+            ("0.2.1", "0.2.1"),
+            ("0.2.1dev", "0.2.1dev"),
+            ("0.2.1-", "0.2.1-"),
+            ("v0.2.1-dev", "v0.2.1-dev"),
+            ("0.2-dev", "0.2-dev"),
+            ("0.2.1.4-dev", "0.2.1.4-dev"),
+            ("0..1-dev", "0..1-dev"),
+            ("worked-example", "worked-example"),
+        ] {
+            assert_eq!(release(version), expected, "{version}");
+        }
+    }
+
+    #[test]
+    fn text_rendering_names_the_graph() {
+        let b = wine();
+        let report = grade(&b, &trace_with(&b, Vec::new())).unwrap();
+        let text = report.to_text();
+        let header = text.lines().next().unwrap();
+        assert!(
+            header.contains(&b.target_dataset) && header.contains(&b.target_dataset_version),
+            "{header}"
         );
     }
 

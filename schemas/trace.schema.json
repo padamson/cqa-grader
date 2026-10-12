@@ -15,6 +15,10 @@
       "description": "The `cqa:id` of the benchmark these attempts answer (for wine,\n`wine-benchmark`).",
       "type": "string"
     },
+    "graph": {
+      "description": "The graph the attempts were made over. Grading refuses a trace whose\ngraph is not the benchmark's target, since anchors written against\none version of a dataset say nothing about retrieval over another.",
+      "$ref": "#/$defs/Graph"
+    },
     "system": {
       "description": "The system under test.",
       "$ref": "#/$defs/System"
@@ -28,6 +32,7 @@
   "required": [
     "trace_format",
     "benchmark",
+    "graph",
     "system",
     "attempts"
   ],
@@ -74,6 +79,25 @@
       "additionalProperties": false,
       "required": [
         "question"
+      ]
+    },
+    "Graph": {
+      "description": "The graph a system ran over, named the way a benchmark names its target.",
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "description": "The dataset, as the benchmark's `cqa:target_dataset` would name it\n(for wine, `worked-example`).",
+          "type": "string"
+        },
+        "dataset_version": {
+          "description": "The dataset's version, as `cqa:target_dataset_version` would give\nit. A pre-release (`0.2.1-dev`) is graded as its release (`0.2.1`).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "dataset",
+        "dataset_version"
       ]
     },
     "System": {

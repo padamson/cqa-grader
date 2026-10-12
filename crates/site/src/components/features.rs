@@ -29,7 +29,7 @@ pub fn Features() -> impl IntoView {
                 <FeatureCard
                     id="feature-exit-codes"
                     title="Exit codes and reports"
-                    blurb="0 when every question passes, 1 when any fails, and 2 when the input can't be graded: a trace for another benchmark, a field the format doesn't define, or two attempts at one question. --report also writes the grade as JSON."
+                    blurb="0 when every question passes, 1 when any fails, and 2 when the input can't be graded: a trace for another benchmark or run over another graph, a field the format doesn't define, or two attempts at one question. --report also writes the grade as JSON."
                 />
                 <FeatureCard
                     id="feature-baseline"

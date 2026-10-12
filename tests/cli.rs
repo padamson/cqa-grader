@@ -3,9 +3,11 @@
 use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assert_cmd::Command;
+use cqa_grader::{Benchmark, Graph, System, Trace};
 use oxigraph::io::RdfFormat;
 use oxigraph::model::{NamedNodeRef, Triple, vocab::rdf};
 use oxigraph::store::Store;
@@ -21,12 +23,30 @@ fn cli() -> Command {
     Command::cargo_bin("cqa-grader").unwrap()
 }
 
+fn wine_benchmark() -> &'static Benchmark {
+    static WINE: LazyLock<Benchmark> = LazyLock::new(common::wine_benchmark);
+    &WINE
+}
+
+/// `--dataset` and `--dataset-version` naming wine's graph as its
+/// benchmark targets it.
+fn wine_graph_args() -> [String; 4] {
+    let target = wine_benchmark().target_graph();
+    [
+        "--dataset".into(),
+        target.dataset,
+        "--dataset-version".into(),
+        target.dataset_version,
+    ]
+}
+
 #[test]
 fn baseline_then_grade_fails_only_closed_world_negatives() {
     let dir = tempdir();
     let trace = dir.join("trace.json");
     cli()
         .args(["baseline", "--graph", &fixture("wine.ttl")])
+        .args(wine_graph_args())
         .args(["--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--output", trace.to_str().unwrap()])
         .assert()
@@ -53,13 +73,11 @@ fn baseline_then_grade_fails_only_closed_world_negatives() {
 
 #[test]
 fn a_failing_trace_exits_one() {
-    let dir = tempdir();
-    let trace = dir.join("trace.json");
-    std::fs::write(
-        &trace,
-        r#"{"trace_format":"0.1","benchmark":"wine-benchmark","system":{"name":"nothing"},"attempts":[]}"#,
-    )
-    .unwrap();
+    let trace = empty_trace(
+        &tempdir(),
+        "wine-benchmark",
+        wine_benchmark().target_graph(),
+    );
     cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
@@ -70,13 +88,7 @@ fn a_failing_trace_exits_one() {
 
 #[test]
 fn a_trace_for_another_benchmark_is_a_usage_error() {
-    let dir = tempdir();
-    let trace = dir.join("trace.json");
-    std::fs::write(
-        &trace,
-        r#"{"trace_format":"0.1","benchmark":"other","system":{"name":"x"},"attempts":[]}"#,
-    )
-    .unwrap();
+    let trace = empty_trace(&tempdir(), "other", wine_benchmark().target_graph());
     cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--trace", trace.to_str().unwrap()])
@@ -85,6 +97,95 @@ fn a_trace_for_another_benchmark_is_a_usage_error() {
         .stderr(predicate::str::contains(
             "grading against \"wine-benchmark\"",
         ));
+}
+
+#[test]
+fn a_trace_for_another_dataset_or_version_is_a_usage_error() {
+    // Wine's anchors are written against one dataset at one version;
+    // retrieval over any other says nothing about them.
+    let target = wine_benchmark().target_graph();
+    let elsewhere = Graph {
+        dataset: "a-fork".into(),
+        ..target.clone()
+    };
+    let older = Graph {
+        dataset_version: "0.0.0-older".into(),
+        ..target
+    };
+    for (graph, moved) in [(elsewhere, "a-fork"), (older, "0.0.0-older")] {
+        let trace = empty_trace(&tempdir(), "wine-benchmark", graph);
+        let out = cli()
+            .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+            .args(["--trace", trace.to_str().unwrap()])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{moved}: {stderr}");
+        assert!(stderr.contains(&format!("{moved:?}")), "{moved}: {stderr}");
+    }
+}
+
+#[test]
+fn the_documented_trace_is_read_as_written() {
+    // The README's example, written by hand to the documented format
+    // rather than by this crate's serializer. It attempts cq-03 alone and
+    // passes it; the rest fail as unattempted.
+    let snippet =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/site/snippets/step_trace.json");
+    let out = cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--trace", snippet.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let passed: Vec<&str> = json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["passed"] == true)
+        .map(|r| r["question"].as_str().unwrap())
+        .collect();
+    assert_eq!(passed, ["cq-03"]);
+}
+
+#[test]
+fn the_baseline_records_the_graph_it_ran_over() {
+    // Named apart from the benchmark's target, so a baseline that copied
+    // the benchmark's pins into its trace would fail.
+    let dir = tempdir();
+    let trace = dir.join("trace.json");
+    cli()
+        .args(["baseline", "--graph", &fixture("wine.ttl")])
+        .args(["--dataset", "a-fork", "--dataset-version", "9.9.9"])
+        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--output", trace.to_str().unwrap()])
+        .assert()
+        .success();
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(trace).unwrap()).unwrap();
+    assert_eq!(
+        json["graph"],
+        serde_json::json!({"dataset": "a-fork", "dataset_version": "9.9.9"})
+    );
+}
+
+/// Write a trace for `benchmark` over `graph` with no attempts, and
+/// return its path.
+fn empty_trace(dir: &Path, benchmark: &str, graph: Graph) -> PathBuf {
+    let system = System {
+        name: "nothing".into(),
+        version: None,
+        notes: None,
+    };
+    let path = dir.join("trace.json");
+    Trace::new(benchmark, graph, system).write(&path).unwrap();
+    path
 }
 
 #[test]
@@ -110,6 +211,7 @@ fn a_graph_that_fails_to_load_is_named() {
     let out = cli()
         .args(["baseline", "--graph", &fixture("wine.ttl")])
         .args(["--graph", broken.to_str().unwrap()])
+        .args(wine_graph_args())
         .args(["--benchmark", &fixture("wine-benchmark.ttl")])
         .output()
         .unwrap();
@@ -130,6 +232,7 @@ fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> u64 {
         baseline.arg("--graph").arg(graph);
     }
     baseline
+        .args(wine_graph_args())
         .args(["--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--output", trace.to_str().unwrap()])
         .assert()

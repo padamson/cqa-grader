@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use cqa_grader::Benchmark;
+
 /// A committed fixture's path. `scripts/regen-fixtures.sh` generates them
 /// from sibling checkouts of ontology-authoring-template and cqa-schema
 /// (see `panschema.toml`).
@@ -20,4 +22,9 @@ pub fn fixture_path(name: &str) -> PathBuf {
 /// A committed fixture's text.
 pub fn fixture_text(name: &str) -> String {
     std::fs::read_to_string(fixture_path(name)).unwrap()
+}
+
+/// Wine's benchmark, from the committed fixture.
+pub fn wine_benchmark() -> Benchmark {
+    Benchmark::from_turtle(&fixture_text("wine-benchmark.ttl")).unwrap()
 }

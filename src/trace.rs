@@ -1,11 +1,12 @@
 //! The trace format: what a system did with each question.
 //!
 //! A trace is the only thing a graded system hands this crate. It names
-//! the benchmark, names the system, and for each question lists the
-//! records retrieval reached and the records the answer rests on, as IRIs
-//! into the target graph. Nothing about how the system found them is
-//! recorded, which is the point: a private retriever can be graded by a
-//! public grader without any of its code or method crossing over.
+//! the benchmark, the graph the system ran over, and the system, and for
+//! each question lists the records retrieval reached and the records the
+//! answer rests on, as IRIs into that graph. Nothing about how the system
+//! found them is recorded, which is the point: a private retriever can be
+//! graded by a public grader without any of its code or method crossing
+//! over.
 //!
 //! The JSON Schema for the format is in `schemas/trace.schema.json` and
 //! printed by `cqa-grader trace-schema`.
@@ -34,6 +35,18 @@ pub struct System {
     /// commit, a date). Free text; never read by the grader.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+}
+
+/// The graph a system ran over, named the way a benchmark names its target.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Graph {
+    /// The dataset, as the benchmark's `cqa:target_dataset` would name it
+    /// (for wine, `worked-example`).
+    pub dataset: String,
+    /// The dataset's version, as `cqa:target_dataset_version` would give
+    /// it. A pre-release (`0.2.1-dev`) is graded as its release (`0.2.1`).
+    pub dataset_version: String,
 }
 
 /// What a system did with one question.
@@ -82,6 +95,10 @@ pub struct Trace {
     /// The `cqa:id` of the benchmark these attempts answer (for wine,
     /// `wine-benchmark`).
     pub benchmark: String,
+    /// The graph the attempts were made over. Grading refuses a trace whose
+    /// graph is not the benchmark's target, since anchors written against
+    /// one version of a dataset say nothing about retrieval over another.
+    pub graph: Graph,
     /// The system under test.
     pub system: System,
     /// One attempt per question. A question with no attempt fails.
@@ -90,10 +107,11 @@ pub struct Trace {
 
 impl Trace {
     /// A trace with no attempts yet.
-    pub fn new(benchmark: impl Into<String>, system: System) -> Self {
+    pub fn new(benchmark: impl Into<String>, graph: Graph, system: System) -> Self {
         Trace {
             trace_format: TRACE_FORMAT.to_string(),
             benchmark: benchmark.into(),
+            graph,
             system,
             attempts: Vec::new(),
         }
@@ -179,10 +197,18 @@ pub(crate) fn write_json(path: impl AsRef<Path>, value: &impl Serialize) -> Resu
 mod tests {
     use super::*;
 
+    fn graph() -> Graph {
+        Graph {
+            dataset: "d".into(),
+            dataset_version: "1".into(),
+        }
+    }
+
     #[test]
     fn attempt_finds_by_question_id() {
         let mut trace = Trace::new(
             "b",
+            graph(),
             System {
                 name: "s".into(),
                 version: None,
@@ -199,6 +225,7 @@ mod tests {
         let json = r#"{
             "trace_format": "9.0",
             "benchmark": "b",
+            "graph": {"dataset": "d", "dataset_version": "1"},
             "system": {"name": "s"},
             "attempts": [],
             "budget": 10
@@ -217,6 +244,7 @@ mod tests {
         let json = r#"{
             "trace_format": "0.1",
             "benchmark": "b",
+            "graph": {"dataset": "d", "dataset_version": "1"},
             "system": {"name": "s"},
             "attempts": [{"question": "q", "asserts_absense": true}]
         }"#;
@@ -231,6 +259,7 @@ mod tests {
     fn round_trips_through_json() {
         let mut trace = Trace::new(
             "wine-benchmark",
+            graph(),
             System {
                 name: "test".into(),
                 version: Some("0".into()),
@@ -252,6 +281,7 @@ mod tests {
         let json = r#"{
             "trace_format": "0.1",
             "benchmark": "b",
+            "graph": {"dataset": "d", "dataset_version": "1"},
             "system": {"name": "s"},
             "attempts": [{"question": "q"}]
         }"#;

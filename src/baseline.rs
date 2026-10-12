@@ -33,7 +33,7 @@ use oxigraph::store::Store;
 use crate::Result;
 use crate::benchmark::Benchmark;
 use crate::rdf::{load_turtle, load_turtle_files, select};
-use crate::trace::{Attempt, System, Trace};
+use crate::trace::{Attempt, Graph, System, Trace};
 
 /// Words that never link a question to a record on their own.
 const STOPWORDS: &[&str] = &[
@@ -130,11 +130,14 @@ impl Baseline {
 
     /// Run every question in a benchmark and collect the attempts into a trace.
     ///
-    /// Only each question's `id` and `question` text are read. The key
-    /// (anchors, citations, kinds) is never consulted.
-    pub fn run(&self, benchmark: &Benchmark, hops: usize) -> Result<Trace> {
+    /// `graph` names the graph this baseline was loaded from; the trace
+    /// records it as given. Only each question's `id` and `question` text
+    /// are read from the benchmark. The key (anchors, citations, kinds) and
+    /// the benchmark's own target are never consulted.
+    pub fn run(&self, benchmark: &Benchmark, graph: Graph, hops: usize) -> Result<Trace> {
         let mut trace = Trace::new(
             benchmark.id.clone(),
+            graph,
             System {
                 name: "cqa-grader baseline".into(),
                 version: Some(env!("CARGO_PKG_VERSION").into()),
