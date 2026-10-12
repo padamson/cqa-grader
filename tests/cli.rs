@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assert_cmd::Command;
 use oxigraph::io::RdfFormat;
@@ -191,10 +192,15 @@ fn trace_schema_prints_json_schema() {
         .stdout(predicate::str::contains("\"trace_format\""));
 }
 
+/// A fresh directory for one test. The counter keeps two tests in one
+/// process apart (as under `cargo test`, which cargo-mutants runs); the
+/// clock's resolution on macOS is a microsecond, which they can share.
 fn tempdir() -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
-        "cqa-grader-test-{}-{}",
+        "cqa-grader-test-{}-{}-{}",
         std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
