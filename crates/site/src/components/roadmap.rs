@@ -58,8 +58,8 @@ pub fn Roadmap() -> impl IntoView {
                                         data.milestone,
                                         data.next_milestone,
                                     )}
-                                    "Each item's criteria say what done means and name the test "
-                                    "that proves it. What already shipped is in the "
+                                    "Each item's criteria say what done means. On a done item each one "
+                                    "links to the test that proves it. What already shipped is in the "
                                     <a href=CHANGELOG class="text-chalk-blue underline hover:text-chalk-50">
                                         "changelog"
                                     </a>
@@ -195,9 +195,10 @@ fn RoadmapItem(item: Item) -> impl IntoView {
 }
 
 /// The item's acceptance criteria, behind a button, as a native popover:
-/// the browser handles the top layer, Escape and a click outside. Each
-/// criterion names its proving test; on a done item the test is in the
-/// tree (a host test holds the roadmap to that), so it links to the source.
+/// the browser handles the top layer, Escape and a click outside. On a done
+/// item each criterion links to its proving test, which a host test holds
+/// to being in the tree. A planned item's tests may still be renamed or
+/// split, so the page shows only its criteria.
 #[component]
 fn Criteria(id: String, title: String, done: bool, criteria: Vec<Criterion>) -> impl IntoView {
     let count = criteria.len();
@@ -249,18 +250,17 @@ fn Criteria(id: String, title: String, done: bool, criteria: Vec<Criterion>) -> 
                 {criteria
                     .into_iter()
                     .map(|c| {
-                        let test = if done {
+                        let test = done.then(|| {
                             let href = c
                                 .test_location()
                                 .map(|(path, _)| format!("{SOURCE}/{path}"))
                                 .unwrap_or_default();
                             view! {
-                                <a href=href class="text-ink/70 underline hover:text-red-pen">{c.test.clone()}</a>
+                                <code class="mt-0.5 block text-xs break-all">
+                                    <a href=href class="text-ink/70 underline hover:text-red-pen">{c.test.clone()}</a>
+                                </code>
                             }
-                                .into_any()
-                        } else {
-                            view! { <span class="text-ink/70">{c.test.clone()}</span> }.into_any()
-                        };
+                        });
                         view! {
                             <li data-criterion class="flex gap-3">
                                 <svg class="mt-0.5 h-4 w-4 shrink-0 text-red-pen" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -268,7 +268,7 @@ fn Criteria(id: String, title: String, done: bool, criteria: Vec<Criterion>) -> 
                                 </svg>
                                 <div class="min-w-0">
                                     <p class="text-sm">{c.criterion}</p>
-                                    <code class="mt-0.5 block text-xs break-all">{test}</code>
+                                    {test}
                                 </div>
                             </li>
                         }
