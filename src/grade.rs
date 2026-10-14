@@ -27,6 +27,12 @@
 //! `attribution` (wine's synthesis question does), a `citations-rest`
 //! check runs the same superset test.
 //!
+//! Every question ends in one of four [`Outcome`]s: passed, unanswered (a
+//! closed-world negative whose records were reached, with no absence
+//! asserted and nothing else failed), wrong, or unattempted. A grade is
+//! held to a [`Require`]ment, which says which outcomes fail it. The
+//! variants of both carry the definitions.
+//!
 //! Recall and precision over `expected_anchors` are reported for every
 //! attempt as information. Recall of one is what `anchors-reached`
 //! requires; precision is never required, but it is where a good retriever
@@ -87,6 +93,81 @@ impl Check {
     }
 }
 
+/// How one question came out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Outcome {
+    /// Every check passed.
+    Passed,
+    /// A closed-world negative whose unconnected anchors were all reached,
+    /// with no absence asserted and nothing else failed. The system had
+    /// the records in hand and said nothing.
+    Unanswered,
+    /// A check failed some other way. In this tier the answer is the
+    /// evidence, so a false "none on record", an anchor not reached, a
+    /// citation retrieval never reached, or an attribution without its
+    /// citations is a wrong answer whatever the prose says.
+    Wrong,
+    /// The trace holds no attempt at the question.
+    Unattempted,
+}
+
+impl Outcome {
+    /// The verdict column of the text report: the outcome's name, in
+    /// capitals when `require` rejects it, so a reader scanning for them
+    /// finds what failed the grade and nothing the grade let through.
+    fn label(self, require: Require) -> String {
+        let name = match self {
+            Outcome::Passed => "ok",
+            Outcome::Unanswered => "unanswered",
+            Outcome::Wrong => "wrong",
+            Outcome::Unattempted => "unattempted",
+        };
+        if require.rejects(self) {
+            name.to_uppercase()
+        } else {
+            name.to_owned()
+        }
+    }
+}
+
+/// What a trace must do for its grade to pass. The CLI takes it as
+/// `--require`, spelled as the JSON report spells it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum Require {
+    /// Every question passed its checks, which is what answering one means
+    /// here: a wrong answer fails this as an unanswered question does.
+    #[default]
+    Answered,
+    /// No question answered wrongly and none left unattempted (tolerating
+    /// those would pass an empty trace). A question left unanswered (a
+    /// closed-world negative whose records were reached, with no absence
+    /// asserted) is tolerated, so a system that abstains on negatives can
+    /// meet it.
+    NoWrongAnswers,
+}
+
+impl Require {
+    /// Whether a question with this outcome fails the requirement.
+    pub fn rejects(self, outcome: Outcome) -> bool {
+        match self {
+            Require::Answered => outcome != Outcome::Passed,
+            Require::NoWrongAnswers => {
+                matches!(outcome, Outcome::Wrong | Outcome::Unattempted)
+            }
+        }
+    }
+
+    /// The requirement in words, for the text report's header.
+    pub fn describe(self) -> &'static str {
+        match self {
+            Require::Answered => "every question answered",
+            Require::NoWrongAnswers => "no wrong answers",
+        }
+    }
+}
+
 /// The outcome for one question.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct QuestionResult {
@@ -96,8 +177,8 @@ pub struct QuestionResult {
     pub iri: String,
     /// The kinds the question names.
     pub answer_kinds: Vec<AnswerKind>,
-    /// Whether every check passed.
-    pub passed: bool,
+    /// How it came out.
+    pub outcome: Outcome,
     /// How many records the attempt retrieved.
     pub retrieved: usize,
     /// Share of `expected_anchors` that were retrieved.
@@ -108,16 +189,19 @@ pub struct QuestionResult {
     pub checks: Vec<Check>,
 }
 
-/// Counts over the whole benchmark.
+/// Counts over the whole benchmark. The four outcomes partition the
+/// questions, so they sum to `questions`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Summary {
     /// Questions in the benchmark.
     pub questions: usize,
     /// Questions whose every check passed.
     pub passed: usize,
-    /// Questions with at least one failed check.
-    pub failed: usize,
-    /// Questions the trace did not attempt (counted among `failed`).
+    /// Closed-world negatives reached and left unanswered.
+    pub unanswered: usize,
+    /// Questions answered wrongly.
+    pub wrong: usize,
+    /// Questions the trace did not attempt.
     pub unattempted: usize,
 }
 
@@ -131,7 +215,9 @@ pub struct Report {
     pub graph: Graph,
     /// The system that was graded.
     pub system: System,
-    /// Whether every question passed.
+    /// What the trace was held to.
+    pub require: Require,
+    /// Whether the trace met it.
     pub passed: bool,
     /// The counts.
     pub summary: Summary,
@@ -163,12 +249,13 @@ impl Report {
             .map(|v| format!(" {v}"))
             .unwrap_or_default();
         out.push_str(&format!(
-            "{}: grading {}{} over {} {}\n",
+            "{}: grading {}{} over {} {}, requiring {}\n",
             self.benchmark,
             self.system.name,
             version,
             self.graph.dataset,
-            self.graph.dataset_version
+            self.graph.dataset_version,
+            self.require.describe()
         ));
         let width = self
             .results
@@ -176,11 +263,17 @@ impl Report {
             .map(|r| r.question.len() + 1 + kinds_label(&r.answer_kinds).len())
             .max()
             .unwrap_or(0);
+        let verdict_width = self
+            .results
+            .iter()
+            .map(|r| r.outcome.label(self.require).len())
+            .max()
+            .unwrap_or(0);
         for r in &self.results {
             let label = format!("{} {}", r.question, kinds_label(&r.answer_kinds));
-            let verdict = if r.passed { "ok  " } else { "FAIL" };
+            let verdict = r.outcome.label(self.require);
             out.push_str(&format!(
-                "  {label:<width$}  {verdict}  recall {:.2}  precision {:.2}  retrieved {}\n",
+                "  {label:<width$}  {verdict:<verdict_width$}  recall {:.2}  precision {:.2}  retrieved {}\n",
                 r.recall, r.precision, r.retrieved
             ));
             for c in r.checks.iter().filter(|c| !c.passed) {
@@ -195,11 +288,11 @@ impl Report {
         }
         let s = &self.summary;
         out.push_str(&format!(
-            "{} questions: {} passed, {} failed",
-            s.questions, s.passed, s.failed
+            "{} questions: {} passed, {} unanswered, {} wrong",
+            s.questions, s.passed, s.unanswered, s.wrong
         ));
         if s.unattempted > 0 {
-            out.push_str(&format!(" ({} unattempted)", s.unattempted));
+            out.push_str(&format!(", {} unattempted", s.unattempted));
         }
         out.push('\n');
         out
@@ -233,12 +326,12 @@ fn release(version: &str) -> &str {
     }
 }
 
-/// Grade a trace against a benchmark.
+/// Grade a trace against a benchmark, holding it to `require`.
 ///
 /// Fails with [`Error::Trace`] when the trace fails [`Trace::check`],
 /// names a different benchmark, or was run over a dataset or version other
 /// than the benchmark's target. Each is a usage error, not a failed grade.
-pub fn grade(benchmark: &Benchmark, trace: &Trace) -> Result<Report> {
+pub fn grade(benchmark: &Benchmark, trace: &Trace, require: Require) -> Result<Report> {
     trace.check()?;
     if trace.benchmark != benchmark.id {
         return Err(Error::Trace(format!(
@@ -266,29 +359,26 @@ pub fn grade(benchmark: &Benchmark, trace: &Trace) -> Result<Report> {
         .iter()
         .map(|q| grade_question(q, attempts.get(q.id.as_str()).copied()))
         .collect();
-    let unattempted = benchmark
-        .questions
-        .iter()
-        .filter(|q| !attempts.contains_key(q.id.as_str()))
-        .count();
     let unknown_attempts: Vec<String> = attempts
         .keys()
         .filter(|id| benchmark.question(id).is_none())
         .map(|id| id.to_string())
         .collect();
 
-    let passed = results.iter().filter(|r| r.passed).count();
+    let count = |outcome: Outcome| results.iter().filter(|r| r.outcome == outcome).count();
     let summary = Summary {
         questions: results.len(),
-        passed,
-        failed: results.len() - passed,
-        unattempted,
+        passed: count(Outcome::Passed),
+        unanswered: count(Outcome::Unanswered),
+        wrong: count(Outcome::Wrong),
+        unattempted: count(Outcome::Unattempted),
     };
     Ok(Report {
         benchmark: benchmark.id.clone(),
         graph: trace.graph.clone(),
         system: trace.system.clone(),
-        passed: summary.failed == 0,
+        require,
+        passed: results.iter().all(|r| !require.rejects(r.outcome)),
         summary,
         results,
         unknown_attempts,
@@ -302,7 +392,7 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
             question: question.id.clone(),
             iri: question.iri.clone(),
             answer_kinds,
-            passed: false,
+            outcome: Outcome::Unattempted,
             retrieved: 0,
             recall: 0.0,
             precision: 0.0,
@@ -338,6 +428,11 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         .answer_kinds
         .contains(&AnswerKind::ClosedWorldNegative);
     let false_absence = attempt.asserts_absence && !negative;
+    // Reached a negative's records and said nothing: the one failure the
+    // outcome counts as an abstention rather than a wrong answer.
+    let abstained = negative
+        && !attempt.asserts_absence
+        && question.unconnected_anchors.is_subset(&attempt.retrieved);
     checks.push(Check::new(
         "no-false-absence",
         !false_absence,
@@ -408,6 +503,17 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         });
     }
 
+    // An abstention is the negative's own check failing and nothing else;
+    // a second failure makes the attempt a wrong answer however silent.
+    let failed = checks.iter().filter(|c| !c.passed).count();
+    let outcome = if failed == 0 {
+        Outcome::Passed
+    } else if abstained && failed == 1 {
+        Outcome::Unanswered
+    } else {
+        Outcome::Wrong
+    };
+
     let hits = attempt
         .retrieved
         .intersection(&question.expected_anchors)
@@ -423,7 +529,7 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         question: question.id.clone(),
         iri: question.iri.clone(),
         answer_kinds,
-        passed: checks.iter().all(|c| c.passed),
+        outcome,
         retrieved: attempt.retrieved.len(),
         recall,
         precision,
@@ -458,6 +564,33 @@ mod tests {
         }
     }
 
+    /// Wine's closed-world negative, its records reached and nothing said.
+    fn silent_negative(b: &Benchmark) -> Attempt {
+        Attempt {
+            asserts_absence: false,
+            ..perfect(b.question("cq-03").unwrap())
+        }
+    }
+
+    /// A positive question answered "none on record".
+    fn false_absence(b: &Benchmark) -> Attempt {
+        Attempt {
+            asserts_absence: true,
+            ..perfect(b.question("cq-04").unwrap())
+        }
+    }
+
+    /// The baseline's shape: every anchor reached, no absence asserted.
+    fn abstaining(b: &Benchmark) -> Vec<Attempt> {
+        b.questions
+            .iter()
+            .map(|q| Attempt {
+                asserts_absence: false,
+                ..perfect(q)
+            })
+            .collect()
+    }
+
     fn trace_with(benchmark: &Benchmark, attempts: Vec<Attempt>) -> Trace {
         let mut t = Trace::new(benchmark.id.clone(), benchmark.target_graph(), system());
         t.attempts = attempts;
@@ -471,13 +604,31 @@ mod tests {
             .unwrap_or_else(|| panic!("no check {name} in {:?}", r.checks))
     }
 
+    /// Grade `attempts` against `benchmark` under the default requirement.
+    fn graded(benchmark: &Benchmark, attempts: Vec<Attempt>) -> Report {
+        grade(
+            benchmark,
+            &trace_with(benchmark, attempts),
+            Require::Answered,
+        )
+        .unwrap()
+    }
+
+    fn result<'a>(report: &'a Report, question: &str) -> &'a QuestionResult {
+        report
+            .results
+            .iter()
+            .find(|r| r.question == question)
+            .unwrap_or_else(|| panic!("no result for {question} in {:?}", report.results))
+    }
+
     #[test]
     fn two_attempts_at_one_question_are_an_error() {
         // Grading only the first would hide the second from the report.
         let b = wine();
         let q = b.question("cq-03").unwrap();
         let t = trace_with(&b, vec![perfect(q), Attempt::empty("cq-03")]);
-        let err = grade(&b, &t).unwrap_err();
+        let err = grade(&b, &t, Require::Answered).unwrap_err();
         assert!(
             matches!(&err, Error::Trace(m) if m.contains("cq-03")),
             "{err}"
@@ -487,11 +638,18 @@ mod tests {
     #[test]
     fn a_perfect_trace_passes_every_question() {
         let b = wine();
-        let t = trace_with(&b, b.questions.iter().map(perfect).collect());
-        let report = grade(&b, &t).unwrap();
+        let report = graded(&b, b.questions.iter().map(perfect).collect());
         assert!(report.passed, "{}", report.to_text());
-        assert_eq!(report.summary.passed, 6);
-        assert_eq!(report.summary.failed, 0);
+        assert_eq!(
+            report.summary,
+            Summary {
+                questions: 6,
+                passed: 6,
+                unanswered: 0,
+                wrong: 0,
+                unattempted: 0,
+            }
+        );
         assert!(
             report
                 .results
@@ -503,12 +661,12 @@ mod tests {
     #[test]
     fn an_empty_trace_fails_every_question_as_unattempted() {
         let b = wine();
-        let t = trace_with(&b, Vec::new());
-        let report = grade(&b, &t).unwrap();
+        let report = graded(&b, Vec::new());
         assert!(!report.passed);
         assert_eq!(report.summary.unattempted, 6);
-        assert_eq!(report.summary.failed, 6);
+        assert_eq!(report.summary.passed, 0);
         for r in &report.results {
+            assert_eq!(r.outcome, Outcome::Unattempted);
             assert_eq!(r.checks.len(), 1);
             assert_eq!(r.checks[0].name, "attempted");
             assert!(!r.checks[0].passed);
@@ -522,10 +680,10 @@ mod tests {
         let mut a = perfect(q);
         let dropped = "https://w3id.org/wine-linkml/grilled-meat".to_string();
         assert!(a.retrieved.remove(&dropped));
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[2];
         assert_eq!(r.question, "cq-04");
-        assert!(!r.passed);
+        assert_eq!(r.outcome, Outcome::Wrong);
         let c = check(r, "anchors-reached");
         assert!(!c.passed);
         assert_eq!(c.missing, vec![dropped]);
@@ -538,7 +696,7 @@ mod tests {
         let q = b.question("cq-04").unwrap();
         let mut a = perfect(q);
         a.cited.insert("https://w3id.org/wine-linkml/merlot".into());
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let c = check(&report.results[2], "citations-grounded");
         assert!(!c.passed);
         assert_eq!(c.missing, vec!["https://w3id.org/wine-linkml/merlot"]);
@@ -550,7 +708,7 @@ mod tests {
         let q = b.question("cq-04").unwrap();
         let mut a = perfect(q);
         a.cited.clear();
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[2];
         assert!(check(r, "anchors-reached").passed);
         let c = check(r, "attribution");
@@ -581,13 +739,13 @@ mod tests {
         let q = b.question("cq-05").unwrap();
         let mut a = perfect(q);
         a.cited.clear();
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[3];
         assert!(check(r, "synthesis").passed);
         let c = check(r, "citations-rest");
         assert!(!c.passed);
         assert_eq!(c.missing.len(), 3);
-        assert!(!r.passed);
+        assert_eq!(r.outcome, Outcome::Wrong);
     }
 
     #[test]
@@ -596,7 +754,7 @@ mod tests {
         let q = b.question("cq-03").unwrap();
         let mut a = perfect(q);
         a.asserts_absence = false;
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[1];
         assert!(check(r, "anchors-reached").passed);
         let c = check(r, "closed-world-negative");
@@ -612,7 +770,7 @@ mod tests {
         a.asserts_absence = true;
         let r = grade_question(q, Some(&a));
         assert!(!check(&r, "no-false-absence").passed, "{r:?}");
-        assert!(!r.passed, "{r:?}");
+        assert_eq!(r.outcome, Outcome::Wrong, "{r:?}");
     }
 
     #[test]
@@ -621,7 +779,7 @@ mod tests {
         let q = b.question("cq-03").unwrap();
         let mut a = Attempt::empty(&q.id);
         a.asserts_absence = true;
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let c = check(&report.results[1], "closed-world-negative");
         assert!(!c.passed);
         assert_eq!(c.missing.len(), 2);
@@ -634,11 +792,11 @@ mod tests {
         let mut a = perfect(q);
         a.cited
             .remove("https://w3id.org/wine-linkml/va-napa-zin-2017");
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[5];
         assert!(check(r, "comparison").passed);
         assert!(!check(r, "attribution").passed);
-        assert!(!r.passed);
+        assert_eq!(r.outcome, Outcome::Wrong);
     }
 
     #[test]
@@ -650,9 +808,9 @@ mod tests {
             a.retrieved
                 .insert(format!("https://w3id.org/wine-linkml/noise-{i}"));
         }
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let r = &report.results[0];
-        assert!(r.passed);
+        assert_eq!(r.outcome, Outcome::Passed);
         assert_eq!(r.recall, 1.0);
         assert!((r.precision - 0.25).abs() < 1e-9);
         assert_eq!(r.retrieved, 4);
@@ -663,7 +821,7 @@ mod tests {
         let b = wine();
         let mut attempts: Vec<Attempt> = b.questions.iter().map(perfect).collect();
         attempts.push(Attempt::empty("cq-99"));
-        let report = grade(&b, &trace_with(&b, attempts)).unwrap();
+        let report = graded(&b, attempts);
         assert!(report.passed);
         assert_eq!(report.unknown_attempts, vec!["cq-99"]);
     }
@@ -673,10 +831,16 @@ mod tests {
         let b = wine();
         let mut t = trace_with(&b, Vec::new());
         t.benchmark = "other".into();
-        assert!(matches!(grade(&b, &t), Err(Error::Trace(_))));
+        assert!(matches!(
+            grade(&b, &t, Require::Answered),
+            Err(Error::Trace(_))
+        ));
         let mut t = trace_with(&b, Vec::new());
         t.trace_format = "9.9".into();
-        assert!(matches!(grade(&b, &t), Err(Error::Trace(_))));
+        assert!(matches!(
+            grade(&b, &t, Require::Answered),
+            Err(Error::Trace(_))
+        ));
     }
 
     #[test]
@@ -697,7 +861,7 @@ mod tests {
         for (moved, value) in [(moved_dataset, "other"), (moved_version, "0.0.1")] {
             let mut t = trace_with(&b, Vec::new());
             t.graph = moved;
-            match grade(&b, &t) {
+            match grade(&b, &t, Require::Answered) {
                 Err(Error::Trace(m)) => assert!(
                     [value, &target.dataset, &target.dataset_version]
                         .iter()
@@ -713,7 +877,7 @@ mod tests {
     fn citations_rest_runs_where_citations_are_expected_without_attribution() {
         let b = wine();
         let attempts = b.questions.iter().map(perfect).collect();
-        let report = grade(&b, &trace_with(&b, attempts)).unwrap();
+        let report = graded(&b, attempts);
         for (q, r) in b.questions.iter().zip(&report.results) {
             let expected = !q.expected_citations.is_empty()
                 && !q.answer_kinds.contains(&AnswerKind::Attribution);
@@ -726,7 +890,7 @@ mod tests {
     fn the_label_column_is_as_wide_as_the_longest_label() {
         let b = wine();
         let attempts = b.questions.iter().map(perfect).collect();
-        let report = grade(&b, &trace_with(&b, attempts)).unwrap();
+        let report = graded(&b, attempts);
         let widest = report
             .results
             .iter()
@@ -745,15 +909,7 @@ mod tests {
     #[test]
     fn only_failed_checks_are_listed() {
         let b = wine();
-        let attempts = b
-            .questions
-            .iter()
-            .map(|q| Attempt {
-                asserts_absence: false,
-                ..perfect(q)
-            })
-            .collect();
-        let text = grade(&b, &trace_with(&b, attempts)).unwrap().to_text();
+        let text = graded(&b, abstaining(&b)).to_text();
         assert!(text.contains("closed-world-negative: "), "{text}");
         assert!(!text.contains("attempted: "), "{text}");
     }
@@ -762,9 +918,9 @@ mod tests {
     fn a_full_trace_says_nothing_about_unattempted() {
         let b = wine();
         let attempts = b.questions.iter().map(perfect).collect();
-        let text = grade(&b, &trace_with(&b, attempts)).unwrap().to_text();
+        let text = graded(&b, attempts).to_text();
         assert!(
-            text.ends_with("6 questions: 6 passed, 0 failed\n"),
+            text.ends_with("6 questions: 6 passed, 0 unanswered, 0 wrong\n"),
             "{text}"
         );
     }
@@ -777,11 +933,17 @@ mod tests {
         let pinned = b.target_dataset_version.clone();
         let mut t = trace_with(&b, Vec::new());
         t.graph.dataset_version = format!("{pinned}-dev");
-        assert!(grade(&b, &t).is_ok(), "trace {pinned}-dev, key {pinned}");
+        assert!(
+            grade(&b, &t, Require::Answered).is_ok(),
+            "trace {pinned}-dev, key {pinned}"
+        );
         let mut dev = b.clone();
         dev.target_dataset_version = format!("{pinned}-dev");
         let t = trace_with(&b, Vec::new());
-        assert!(grade(&dev, &t).is_ok(), "trace {pinned}, key {pinned}-dev");
+        assert!(
+            grade(&dev, &t, Require::Answered).is_ok(),
+            "trace {pinned}, key {pinned}-dev"
+        );
     }
 
     #[test]
@@ -806,7 +968,7 @@ mod tests {
     #[test]
     fn text_rendering_names_the_graph() {
         let b = wine();
-        let report = grade(&b, &trace_with(&b, Vec::new())).unwrap();
+        let report = graded(&b, Vec::new());
         let text = report.to_text();
         let header = text.lines().next().unwrap();
         assert!(
@@ -821,13 +983,129 @@ mod tests {
         let q = b.question("cq-03").unwrap();
         let mut a = perfect(q);
         a.asserts_absence = false;
-        let report = grade(&b, &trace_with(&b, vec![a])).unwrap();
+        let report = graded(&b, vec![a]);
         let text = report.to_text();
         assert!(text.contains("cq-03 closed-world-negative"), "{text}");
-        assert!(text.contains("FAIL"), "{text}");
+        assert!(text.contains("UNATTEMPTED"), "{text}");
         assert!(
-            text.contains("6 questions: 0 passed, 6 failed (5 unattempted)"),
+            text.contains("6 questions: 0 passed, 1 unanswered, 0 wrong, 5 unattempted"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn an_unanswered_negative_is_not_a_wrong_answer() {
+        // Both fail the default requirement; the outcome tells them apart.
+        let b = wine();
+        let report = graded(&b, vec![silent_negative(&b), false_absence(&b)]);
+        assert_eq!(result(&report, "cq-03").outcome, Outcome::Unanswered);
+        assert_eq!(result(&report, "cq-04").outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn an_abstention_with_another_failure_is_wrong() {
+        // Silence excuses only the negative's own check. `abstained &&
+        // failed == 1` mutated to `>= 1` would call this unanswered.
+        let b = wine();
+        let mut a = silent_negative(&b);
+        a.cited.insert("https://w3id.org/wine-linkml/merlot".into());
+        let report = graded(&b, vec![a]);
+        assert_eq!(result(&report, "cq-03").outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn a_silent_negative_whose_records_were_not_reached_is_wrong() {
+        // Silence without the records is a retrieval failure, like a missed
+        // anchor on a positive; only silence with them in hand abstains.
+        let b = wine();
+        let report = graded(&b, vec![Attempt::empty("cq-03")]);
+        assert_eq!(result(&report, "cq-03").outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn the_summary_partitions_the_questions() {
+        let b = wine();
+        let fine = perfect(b.question("cq-02").unwrap());
+        let report = graded(&b, vec![fine, silent_negative(&b), false_absence(&b)]);
+        assert_eq!(
+            report.summary,
+            Summary {
+                questions: 6,
+                passed: 1,
+                unanswered: 1,
+                wrong: 1,
+                unattempted: 3,
+            }
+        );
+    }
+
+    #[test]
+    fn no_wrong_answers_tolerates_the_unanswered() {
+        assert!(!Require::NoWrongAnswers.rejects(Outcome::Unanswered));
+        assert!(Require::Answered.rejects(Outcome::Unanswered));
+    }
+
+    #[test]
+    fn a_wrong_answer_fails_no_wrong_answers() {
+        assert!(Require::NoWrongAnswers.rejects(Outcome::Wrong));
+    }
+
+    #[test]
+    fn an_unattempted_question_fails_no_wrong_answers() {
+        // Tolerating it would pass an empty trace.
+        assert!(Require::NoWrongAnswers.rejects(Outcome::Unattempted));
+    }
+
+    #[test]
+    fn a_passed_question_is_rejected_by_neither_requirement() {
+        assert!(!Require::Answered.rejects(Outcome::Passed));
+        assert!(!Require::NoWrongAnswers.rejects(Outcome::Passed));
+    }
+
+    #[test]
+    fn passed_follows_the_requirement() {
+        let b = wine();
+        let t = trace_with(&b, abstaining(&b));
+        let tolerant = grade(&b, &t, Require::NoWrongAnswers).unwrap();
+        assert_eq!(tolerant.require, Require::NoWrongAnswers);
+        assert!(tolerant.passed, "{}", tolerant.to_text());
+        let strict = grade(&b, &t, Require::Answered).unwrap();
+        assert!(!strict.passed, "{}", strict.to_text());
+    }
+
+    #[test]
+    fn text_rendering_names_the_requirement() {
+        let b = wine();
+        let report = grade(&b, &trace_with(&b, Vec::new()), Require::NoWrongAnswers).unwrap();
+        let text = report.to_text();
+        let header = text.lines().next().unwrap();
+        assert!(header.ends_with("requiring no wrong answers"), "{header}");
+    }
+
+    #[test]
+    fn the_verdict_column_shows_the_outcome() {
+        let b = wine();
+        let text = graded(&b, vec![silent_negative(&b), false_absence(&b)]).to_text();
+        assert!(line(&text, "cq-03").contains("  UNANSWERED  "), "{text}");
+        assert!(line(&text, "cq-04").contains("  WRONG  "), "{text}");
+        assert!(line(&text, "cq-02").contains("  UNATTEMPTED  "), "{text}");
+    }
+
+    #[test]
+    fn an_outcome_the_requirement_tolerates_is_in_lowercase() {
+        // Capitals mark what failed the grade, and under no-wrong-answers
+        // an unanswered negative did not.
+        let b = wine();
+        let t = trace_with(&b, vec![silent_negative(&b)]);
+        let text = grade(&b, &t, Require::NoWrongAnswers).unwrap().to_text();
+        assert!(line(&text, "cq-03").contains("  unanswered  "), "{text}");
+        assert!(line(&text, "cq-02").contains("  UNATTEMPTED  "), "{text}");
+    }
+
+    /// The report line for one question.
+    fn line<'a>(text: &'a str, id: &str) -> &'a str {
+        text.lines()
+            .find(|l| l.trim_start().starts_with(id))
+            .unwrap_or_else(|| panic!("no line for {id} in {text}"))
     }
 }

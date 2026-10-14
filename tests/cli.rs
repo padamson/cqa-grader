@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assert_cmd::Command;
-use cqa_grader::{Benchmark, Graph, System, Trace};
+use cqa_grader::{AnswerKind, Attempt, Benchmark, Graph, System, Trace};
 use oxigraph::io::RdfFormat;
 use oxigraph::model::{NamedNodeRef, Triple, vocab::rdf};
 use oxigraph::store::Store;
@@ -41,18 +41,9 @@ fn wine_graph_args() -> [String; 4] {
 }
 
 #[test]
-fn baseline_then_grade_fails_only_closed_world_negatives() {
+fn baseline_then_grade_leaves_only_closed_world_negatives_unanswered() {
     let dir = tempdir();
-    let trace = dir.join("trace.json");
-    cli()
-        .args(["baseline", "--graph", &fixture("wine.ttl")])
-        .args(wine_graph_args())
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--output", trace.to_str().unwrap()])
-        .assert()
-        .success();
-    assert!(trace.exists());
-
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
     let report = dir.join("report.json");
     cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
@@ -67,8 +58,118 @@ fn baseline_then_grade_fails_only_closed_world_negatives() {
             .as_array()
             .unwrap()
             .contains(&"closed-world-negative".into());
-        assert_eq!(r["passed"], !negative, "{r}");
+        let expected = if negative { "unanswered" } else { "passed" };
+        assert_eq!(r["outcome"], expected, "{r}");
     }
+}
+
+#[test]
+fn the_baseline_gives_no_wrong_answers() {
+    // It leaves wine's negative unanswered, which this requirement
+    // tolerates and the default one (the test above) does not.
+    let dir = tempdir();
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let (code, json) = grade_json(&trace, &["--require", "no-wrong-answers"]);
+    assert_eq!(code, Some(0), "{json}");
+    // The requirement had something to tolerate, so the pass is not vacuous.
+    assert_eq!(json["summary"]["unanswered"], 1, "{json}");
+    assert_eq!(json["summary"]["wrong"], 0, "{json}");
+}
+
+#[test]
+fn a_wrong_answer_fails_the_no_wrong_answers_requirement() {
+    // Each spoils one question of an otherwise perfect trace in a way that
+    // is an answer, not an abstention.
+    type Spoil = fn(&mut Attempt);
+    let spoils: [(&str, Spoil); 3] = [
+        ("a false absence", |a| a.asserts_absence = true),
+        ("an anchor not reached", |a| {
+            // Dropped from `cited` too, or citations-grounded would also
+            // fail and this case would not test the anchors check alone.
+            let dropped = a.retrieved.pop_first().unwrap();
+            a.cited.remove(&dropped);
+        }),
+        ("a citation never retrieved", |a| {
+            a.cited.insert("https://w3id.org/wine-linkml/merlot".into());
+        }),
+    ];
+    for (case, spoil) in spoils {
+        let mut trace = perfect_trace();
+        spoil(
+            trace
+                .attempts
+                .iter_mut()
+                .find(|a| a.question == "cq-04")
+                .unwrap(),
+        );
+        let path = tempdir().join("trace.json");
+        trace.write(&path).unwrap();
+        let (code, json) = grade_json(&path, &["--require", "no-wrong-answers"]);
+        assert_eq!(code, Some(1), "{case}: {json}");
+        assert_eq!(json["summary"]["wrong"], 1, "{case}: {json}");
+    }
+}
+
+/// Run the baseline over `graphs`, named as wine's benchmark targets its
+/// graph, and return the trace's path.
+fn baseline_trace(dir: &Path, graphs: &[&Path]) -> PathBuf {
+    let trace = dir.join("trace.json");
+    let mut baseline = cli();
+    baseline.arg("baseline");
+    for graph in graphs {
+        baseline.arg("--graph").arg(graph);
+    }
+    baseline
+        .args(wine_graph_args())
+        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--output", trace.to_str().unwrap()])
+        .assert()
+        .success();
+    assert!(trace.exists());
+    trace
+}
+
+/// Grade `trace` against wine's benchmark with `args` added, as JSON, and
+/// return the exit code and the report. An exit code that is not a grade
+/// (2, unusable input) panics with the binary's stderr.
+fn grade_json(trace: &Path, args: &[&str]) -> (Option<i32>, serde_json::Value) {
+    let out = cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
+        .args(args)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        matches!(out.status.code(), Some(0 | 1)),
+        "grade could not run: {stderr}"
+    );
+    let json = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| panic!("{e}: {stderr}"));
+    (out.status.code(), json)
+}
+
+/// A trace that retrieves and cites exactly the key for every question in
+/// wine's benchmark, and asserts absence on its negative.
+fn perfect_trace() -> Trace {
+    let b = wine_benchmark();
+    let system = System {
+        name: "perfect".into(),
+        version: None,
+        notes: None,
+    };
+    let mut trace = Trace::new(b.id.clone(), b.target_graph(), system);
+    trace.attempts = b
+        .questions
+        .iter()
+        .map(|q| Attempt {
+            question: q.id.clone(),
+            retrieved: q.expected_anchors.clone(),
+            cited: q.expected_citations.clone(),
+            asserts_absence: q.answer_kinds.contains(&AnswerKind::ClosedWorldNegative),
+            answer: None,
+        })
+        .collect();
+    trace
 }
 
 #[test]
@@ -132,23 +233,13 @@ fn the_documented_trace_is_read_as_written() {
     // passes it; the rest fail as unattempted.
     let snippet =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/site/snippets/step_trace.json");
-    let out = cli()
-        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--trace", snippet.to_str().unwrap(), "--format", "json"])
-        .output()
-        .unwrap();
-    assert_eq!(
-        out.status.code(),
-        Some(1),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let (code, json) = grade_json(&snippet, &[]);
+    assert_eq!(code, Some(1), "{json}");
     let passed: Vec<&str> = json["results"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|r| r["passed"] == true)
+        .filter(|r| r["outcome"] == "passed")
         .map(|r| r["question"].as_str().unwrap())
         .collect();
     assert_eq!(passed, ["cq-03"]);
@@ -225,29 +316,8 @@ fn a_graph_that_fails_to_load_is_named() {
 /// Run the baseline over `graphs`, grade its trace against wine's
 /// benchmark, and return how many questions passed.
 fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> u64 {
-    let trace = dir.join("trace.json");
-    let mut baseline = cli();
-    baseline.arg("baseline");
-    for graph in graphs {
-        baseline.arg("--graph").arg(graph);
-    }
-    baseline
-        .args(wine_graph_args())
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--output", trace.to_str().unwrap()])
-        .assert()
-        .success();
-    let out = cli()
-        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
-        .output()
-        .unwrap();
-    assert!(
-        matches!(out.status.code(), Some(0 | 1)),
-        "grade could not run: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let trace = baseline_trace(dir, graphs);
+    let (_, json) = grade_json(&trace, &[]);
     json["summary"]["passed"].as_u64().unwrap()
 }
 

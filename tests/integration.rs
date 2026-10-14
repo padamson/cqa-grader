@@ -1,6 +1,6 @@
 //! The baseline against wine, end to end through the public API.
 
-use cqa_grader::{AnswerKind, Baseline, Benchmark, grade};
+use cqa_grader::{AnswerKind, Baseline, Benchmark, Outcome, Require, grade};
 
 mod common;
 
@@ -14,14 +14,14 @@ fn wine() -> (Benchmark, Baseline) {
 }
 
 #[test]
-fn the_baseline_fails_only_closed_world_negatives() {
+fn the_baseline_leaves_only_closed_world_negatives_unanswered() {
     // It reaches every anchor and never asserts absence, so a negative
-    // fails its own check and nothing else does.
+    // fails its own check and nothing else does, which is an abstention.
     let (benchmark, baseline) = wine();
     let trace = baseline
         .run(&benchmark, benchmark.target_graph(), 1)
         .unwrap();
-    let report = grade(&benchmark, &trace).unwrap();
+    let report = grade(&benchmark, &trace, Require::Answered).unwrap();
     for r in &report.results {
         let failed: Vec<&str> = r
             .checks
@@ -29,12 +29,14 @@ fn the_baseline_fails_only_closed_world_negatives() {
             .filter(|c| !c.passed)
             .map(|c| c.name.as_str())
             .collect();
-        let expected: &[&str] = if r.answer_kinds.contains(&AnswerKind::ClosedWorldNegative) {
-            &["closed-world-negative"]
+        let negative = r.answer_kinds.contains(&AnswerKind::ClosedWorldNegative);
+        let (expected_failed, expected_outcome): (&[&str], Outcome) = if negative {
+            (&["closed-world-negative"], Outcome::Unanswered)
         } else {
-            &[]
+            (&[], Outcome::Passed)
         };
-        assert_eq!(failed, expected, "{}", r.question);
+        assert_eq!(failed, expected_failed, "{}", r.question);
+        assert_eq!(r.outcome, expected_outcome, "{}", r.question);
     }
 }
 
@@ -93,11 +95,11 @@ fn entry_points_alone_are_not_enough() {
     let trace = baseline
         .run(&benchmark, benchmark.target_graph(), 0)
         .unwrap();
-    let report = grade(&benchmark, &trace).unwrap();
+    let report = grade(&benchmark, &trace, Require::Answered).unwrap();
     let failed: Vec<&str> = report
         .results
         .iter()
-        .filter(|r| !r.passed)
+        .filter(|r| r.outcome != Outcome::Passed)
         .map(|r| r.question.as_str())
         .collect();
     assert!(failed.contains(&"cq-04"), "{}", report.to_text());

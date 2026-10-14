@@ -24,8 +24,9 @@
 //! [`baseline`] is a deliberately naive retriever (lexical entity linking,
 //! then bounded one-hop SPARQL lookups) so that a benchmark's own CI has a
 //! student to grade. It exists to show that every anchor can be reached by
-//! lookup, not to answer well. It never says "none on record", so it fails
-//! every closed-world negative.
+//! lookup, not to answer well. It never says "none on record", so it leaves
+//! every closed-world negative unanswered, which a grade held to
+//! [`Require::NoWrongAnswers`] tolerates.
 
 pub mod baseline;
 pub mod benchmark;
@@ -35,7 +36,7 @@ pub mod trace;
 
 pub use baseline::Baseline;
 pub use benchmark::{AnswerKind, Benchmark, Question};
-pub use grade::{Check, QuestionResult, Report, Summary, grade};
+pub use grade::{Check, Outcome, QuestionResult, Report, Require, Summary, grade};
 pub use trace::{Attempt, Graph, System, TRACE_FORMAT, Trace};
 
 /// Errors this crate reports.

@@ -29,6 +29,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   pinned to `0.2.1`, and the other way round. `baseline` takes the two as
   `--dataset` and `--dataset-version` and records them as given, never
   copying the benchmark's.
+- Each question ends `passed`, `unanswered`, `wrong`, or `unattempted`
+  (`Outcome`), and the summary counts them; the outcome replaces the
+  report's per-question `passed` flag and its `failed` count. Unanswered is a closed-world
+  negative whose records were reached with no absence asserted and nothing
+  else failed; any other failure is a wrong answer. `grade` holds the trace
+  to a requirement (`Require`): `answered`, the default, needs every
+  question passed; `no-wrong-answers` tolerates the unanswered and still
+  fails a wrong answer or an unattempted question, so the baseline meets it
+  over wine. The CLI takes it as `--require`, the report records it, and
+  the text report names it in its header and the outcome in its verdict
+  column.
 - Unusable input is refused with exit code 2 rather than graded: a
   benchmark question missing its id, text or ground truth, two questions
   sharing an id, a closed-world negative with no unconnected anchors, a

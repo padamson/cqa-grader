@@ -24,17 +24,17 @@ pub fn Features() -> impl IntoView {
                 <FeatureCard
                     id="feature-absence"
                     title="\"None on record\" answers"
-                    blurb="Some questions are correctly answered \"none on record\". The system has to reach the records the question names and then say so; reaching them and saying nothing fails, and so does saying it where the answer is on record."
+                    blurb="Some questions are correctly answered \"none on record\". The system has to reach the records the question names and then say so. Reaching them and saying nothing leaves the question unanswered; saying it where the answer is on record is a wrong answer. The report tells the two apart."
                 />
                 <FeatureCard
                     id="feature-exit-codes"
                     title="Exit codes and reports"
-                    blurb="0 when every question passes, 1 when any fails, and 2 when the input can't be graded: a trace for another benchmark or run over another graph, a field the format doesn't define, or two attempts at one question. --report also writes the grade as JSON."
+                    blurb="0 when the trace meets what --require asks (every question passing, by default; with no-wrong-answers, none answered wrongly or left unattempted), 1 when it doesn't, and 2 when the input can't be graded: a trace for another benchmark or run over another graph, a field the format doesn't define, or two attempts at one question. --report also writes the grade as JSON."
                 />
                 <FeatureCard
                     id="feature-baseline"
                     title="A naive baseline"
-                    blurb="Finds records by label and looks one link away, never reading the key and never saying \"none on record\". It gives a benchmark's CI something to grade, and a real retriever a precision to beat."
+                    blurb="Finds records by label and looks one link away, never reading the key and never saying \"none on record\", so it leaves every closed-world negative unanswered. It gives a benchmark's CI something to grade under --require no-wrong-answers, and a real retriever a precision to beat."
                 />
                 <FeatureCard
                     id="feature-schema"

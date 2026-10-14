@@ -21,7 +21,9 @@ pub fn HowItWorks() -> impl IntoView {
                 "record\". The system you are grading writes a trace: for each question, the "
                 "records it retrieved and the ones it cited. "
                 <code class="text-chalk-yellow">"cqa-grader grade"</code>
-                " compares the two and exits 1 if any question fails."
+                " compares the two and exits 1 if any question fails, or, with "
+                <code class="text-chalk-yellow">"--require no-wrong-answers"</code>
+                ", only if one is answered wrongly or not attempted."
             </p>
             <CodeTabs tabs=vec![
                 ("benchmark", snippets::STEP_BENCHMARK_TTL),

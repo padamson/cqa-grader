@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use cqa_grader::{Baseline, Benchmark, Graph, Trace, grade};
+use cqa_grader::{Baseline, Benchmark, Graph, Require, Trace, grade};
 
 /// Grade a system's retrieval trace against a cqa benchmark.
 #[derive(Parser)]
@@ -15,7 +15,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Score a trace against a benchmark. Exits 1 if any question fails.
+    /// Score a trace against a benchmark. Exits 1 if the trace does not
+    /// meet what `--require` asks of it.
     Grade {
         /// The benchmark's published Turtle artifact.
         #[arg(long)]
@@ -23,6 +24,9 @@ enum Command {
         /// The trace to grade (JSON, see `trace-schema`).
         #[arg(long)]
         trace: PathBuf,
+        /// What the trace must do to pass.
+        #[arg(long, value_enum, default_value_t)]
+        require: Require,
         /// How to print the report.
         #[arg(long, value_enum, default_value_t = Format::Text)]
         format: Format,
@@ -81,6 +85,7 @@ fn run() -> Result<ExitCode> {
         Command::Grade {
             benchmark,
             trace,
+            require,
             format,
             report,
         } => {
@@ -88,7 +93,7 @@ fn run() -> Result<ExitCode> {
                 .with_context(|| format!("reading benchmark {}", benchmark.display()))?;
             let t = Trace::from_path(&trace)
                 .with_context(|| format!("reading trace {}", trace.display()))?;
-            let r = grade(&b, &t)?;
+            let r = grade(&b, &t, require)?;
             match format {
                 Format::Text => print!("{}", r.to_text()),
                 Format::Json => println!("{}", r.to_json()?),

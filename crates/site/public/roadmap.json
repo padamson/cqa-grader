@@ -21,8 +21,8 @@
           "test": "tests/integration.rs::the_baseline_never_asserts_absence"
         },
         {
-          "criterion": "The baseline fails only closed-world negatives, and only their own check",
-          "test": "tests/integration.rs::the_baseline_fails_only_closed_world_negatives"
+          "criterion": "The baseline leaves only closed-world negatives unanswered, failing only their own check",
+          "test": "tests/integration.rs::the_baseline_leaves_only_closed_world_negatives_unanswered"
         }
       ],
       "status": "done"
@@ -66,6 +66,7 @@
       "title": "Tell an unanswered negative from a wrong answer",
       "blurb": "An attempt that reaches a negative's records and says nothing has left it unanswered; one that says \"none on record\" where the answer is on record is wrong. Grading reports the two apart, so a CI can require no wrong answers from a system that, like the baseline, leaves negatives unanswered.",
       "horizon": "now",
+      "status": "done",
       "acceptance": [
         {
           "criterion": "A negative reached and left unanswered is reported apart from a wrong answer",

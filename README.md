@@ -47,24 +47,30 @@ cargo install cqa-grader
 
 ## Usage
 
-Grade a trace against a benchmark. Exit code 0 means every question
-passed, 1 means at least one failed, 2 means the inputs were unusable.
+Grade a trace against a benchmark. Exit code 0 means the trace met what
+`--require` asks of it, 1 means it did not, 2 means the inputs were
+unusable. The default, `--require answered`, asks that every question pass
+its checks. `--require no-wrong-answers` tolerates a question left
+unanswered (a closed-world negative whose records were reached, with no
+"none on record" said) and still fails a wrong answer or an unattempted
+question; it is what a benchmark's CI asks of the baseline.
 
 ```bash
 cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json
+cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --require no-wrong-answers
 cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --format json --report report.json
 ```
 
 ```text
-wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1
-  cq-02 lookup                  ok    recall 1.00  precision 0.02  retrieved 46
-  cq-03 closed-world-negative   FAIL  recall 1.00  precision 0.18  retrieved 11
+wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1, requiring no wrong answers
+  cq-02 lookup                  ok          recall 1.00  precision 0.02  retrieved 46
+  cq-03 closed-world-negative   unanswered  recall 1.00  precision 0.18  retrieved 11
     closed-world-negative: unconnected anchors reached but the attempt does not assert absence
-  cq-04 attribution             ok    recall 1.00  precision 0.06  retrieved 47
-  cq-05 synthesis               ok    recall 1.00  precision 0.13  retrieved 47
-  cq-06 comparison              ok    recall 1.00  precision 0.09  retrieved 46
-  cq-07 comparison+attribution  ok    recall 1.00  precision 0.17  retrieved 23
-6 questions: 5 passed, 1 failed
+  cq-04 attribution             ok          recall 1.00  precision 0.06  retrieved 47
+  cq-05 synthesis               ok          recall 1.00  precision 0.13  retrieved 47
+  cq-06 comparison              ok          recall 1.00  precision 0.09  retrieved 46
+  cq-07 comparison+attribution  ok          recall 1.00  precision 0.17  retrieved 23
+6 questions: 5 passed, 1 unanswered, 0 wrong
 ```
 
 Run the naive baseline retriever over a graph, so a benchmark's CI has a
@@ -140,6 +146,17 @@ names. All must pass.
 | `closed-world-negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
 | `citations-rest` | `cited` ⊇ `expected_citations`, for a question with citations that does not name `attribution` |
 
+Each question ends in one of four outcomes, and the summary counts them.
+`passed`: every check did. `unanswered`: a closed-world negative whose
+unconnected anchors were all reached, with no absence asserted and nothing
+else failed; the system had the records in hand and said nothing. `wrong`:
+a check failed any other way. In this tier the answer is the evidence, so
+a false "none on record", an anchor not reached, a citation retrieval
+never reached, or an attribution without its citations is a wrong answer
+whatever the prose says. `unattempted`: the trace holds no attempt. The
+text report shows the outcome in its verdict column, and the JSON report
+carries it per question, along with the requirement the grade was held to.
+
 Recall and precision over `expected_anchors` are reported for every
 attempt. Recall of one is what `anchors-reached` requires. Precision is
 never required; it is where a real retriever separates itself from the
@@ -162,8 +179,9 @@ which is the point: every record an answer needs can be found by lookup
 alone, and a retriever that cannot beat those numbers has not added
 anything.
 
-It never says "none on record", so it fails every closed-world negative
-(wine's cq-03, as above). A negative's claim is about particular records,
+It never says "none on record", so it leaves every closed-world negative
+unanswered (wine's cq-03, as above), which `--require no-wrong-answers`
+tolerates. A negative's claim is about particular records,
 and which records is written in the key, not the question. "Is Bordeaux a
 red or white wine?" links Bordeaux and white, nothing joins them, and the
 answer is still on record; "What is the best choice of wine for grilled
@@ -182,11 +200,11 @@ the baseline was given, never the one the benchmark targets.
 ## Library
 
 ```rust
-use cqa_grader::{Benchmark, Trace, grade};
+use cqa_grader::{Benchmark, Require, Trace, grade};
 
 let benchmark = Benchmark::from_path("wine-benchmark.ttl")?;
 let trace = Trace::from_path("trace.json")?;
-let report = grade(&benchmark, &trace)?;
+let report = grade(&benchmark, &trace, Require::Answered)?;
 assert!(report.passed, "{}", report.to_text());
 # Ok::<(), cqa_grader::Error>(())
 ```
