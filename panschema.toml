@@ -1,5 +1,6 @@
 # The graphs cqa-grader is tested against, consumed as panschema packages
-# from sibling checkouts. `scripts/regen-fixtures.sh` runs this and records
+# from sibling checkouts. Each dataset is named as its package publishes
+# it, never pathed into. `scripts/regen-fixtures.sh` runs this and records
 # the siblings' versions; the Dogfood workflow runs it against their main
 # branches.
 [schemas.wine]
@@ -10,11 +11,11 @@ path = "../cqa-schema"
 
 [generate.wine]
 ttl = "tests/fixtures/wine.ttl"
-instances = ["../ontology-authoring-template/data/wine-instances.yaml"]
+datasets = ["worked-example"]
 
 [generate.cqa]
 ttl = "tests/fixtures/wine-benchmark.ttl"
-instances = ["../ontology-authoring-template/data/wine-benchmark.yaml"]
+datasets = ["wine:benchmark"]
 
 [check.cqa]
 resolve_against = ["wine"]
