@@ -60,7 +60,7 @@ jobs:
 
       - name: Cache panschema binary
         id: cache-panschema
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/panschema*
           key: panschema-bin-${{ runner.os }}-${{ steps.panschema.outputs.sha }}
