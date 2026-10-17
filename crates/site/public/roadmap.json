@@ -83,6 +83,31 @@
       ]
     },
     {
+      "id": "roadmap-now-grade-in-one-run",
+      "title": "Grade the baseline in one step",
+      "blurb": "grade --baseline runs the baseline and grades its trace in one run, so a benchmark's CI carries no trace file between two commands.",
+      "horizon": "now",
+      "status": "done",
+      "acceptance": [
+        {
+          "criterion": "grade --baseline reports and exits as baseline then grade do, under either requirement",
+          "test": "tests/cli.rs::grading_the_baseline_in_one_run_matches_baseline_then_grade"
+        },
+        {
+          "criterion": "--save-trace writes the trace baseline would",
+          "test": "tests/cli.rs::save_trace_writes_the_trace_baseline_would"
+        },
+        {
+          "criterion": "A trace is graded alone: --trace with any of the baseline's flags is refused with exit code 2",
+          "test": "tests/cli.rs::a_trace_is_graded_alone"
+        },
+        {
+          "criterion": "A baseline named as some other graph is refused with exit code 2, naming --dataset and --dataset-version, and its saved trace is kept",
+          "test": "tests/cli.rs::a_baseline_named_off_target_points_at_the_flags_and_keeps_its_trace"
+        }
+      ]
+    },
+    {
       "id": "roadmap-now-budget",
       "title": "A retrieval budget",
       "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. Waits on cqa v0.2 deciding whether the cap is the benchmark's to state.",

@@ -89,6 +89,18 @@ them as given. A published graph does not name its dataset, so the baseline
 takes them on trust; grading checks them against the benchmark. In a CI
 step they move with each release.
 
+A benchmark's CI needs the grade, not the trace, so `grade --baseline`
+grades the baseline in one run: in place of `--trace` it takes the
+baseline's flags, runs it, and grades what it retrieved. `--save-trace`
+also writes the trace, which says what the baseline retrieved for a
+question that failed.
+
+```bash
+cqa-grader grade --benchmark wine-benchmark.ttl --baseline \
+  --graph wine.ttl --dataset worked-example --dataset-version 0.2.1 \
+  --require no-wrong-answers
+```
+
 Print the JSON Schema for the trace format:
 
 ```bash

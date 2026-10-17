@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   a negative is about is in the key, not the question; it passes every
   question in wine's benchmark but the closed-world negative.
 - CLI: `cqa-grader grade`, `cqa-grader baseline`, `cqa-grader trace-schema`.
+- `grade --baseline` grades the baseline in one run: it runs the baseline
+  over `--graph` and grades its trace, so a benchmark's CI carries no
+  trace file between two commands. `grade` takes `--trace` or
+  `--baseline`, never both; `--save-trace` also writes the baseline's
+  trace.
 - `baseline --graph` can repeat, for a graph published as several files.
   Every file loads into one store (`Baseline::from_paths`), and a file that
   fails to read or parse is named in the error.

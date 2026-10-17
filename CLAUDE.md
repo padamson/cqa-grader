@@ -16,7 +16,8 @@ benchmark's CI has something to grade.
   lookup, cites everything, never asserts absence (which records a
   negative is about is in the key, not the question). It must never read
   the key; a test checks that.
-- `src/main.rs` is the CLI: `grade`, `baseline`, `trace-schema`.
+- `src/main.rs` is the CLI: `grade` (a trace, or `--baseline` run in
+  place), `baseline`, `trace-schema`.
 - `crates/site/` is the landing site (Leptos CSR, Trunk, Tailwind v4),
   outside the workspace (its own `[workspace]`; run cargo with
   `--manifest-path crates/site/Cargo.toml`, clippy with

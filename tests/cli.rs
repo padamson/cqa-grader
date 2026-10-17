@@ -77,6 +77,86 @@ fn the_baseline_gives_no_wrong_answers() {
 }
 
 #[test]
+fn grading_the_baseline_in_one_run_matches_baseline_then_grade() {
+    // Under both requirements, so both exit codes are compared: the
+    // baseline meets one and not the other.
+    let dir = tempdir();
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    for require in ["answered", "no-wrong-answers"] {
+        let mut one_run = over_wine("grade", &[&common::fixture_path("wine.ttl")]);
+        one_run.args(["--baseline", "--require", require]);
+        assert_eq!(
+            report_json(&mut one_run),
+            grade_json(&trace, &["--require", require]),
+            "{require}"
+        );
+    }
+}
+
+#[test]
+fn save_trace_writes_the_trace_baseline_would() {
+    let dir = tempdir();
+    let expected = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let written = dir.join("saved-trace.json");
+    over_wine("grade", &[&common::fixture_path("wine.ttl")])
+        .args(["--baseline", "--require", "no-wrong-answers"])
+        .args(["--save-trace", written.to_str().unwrap()])
+        .assert()
+        .success();
+    assert_eq!(
+        Trace::from_path(&written).unwrap(),
+        Trace::from_path(&expected).unwrap()
+    );
+}
+
+#[test]
+fn a_trace_is_graded_alone() {
+    // Without the conflict, clap drops the requirements of an argument
+    // that conflicts with one given, so `--dataset` beside `--trace` was
+    // accepted and ignored.
+    let dir = tempdir();
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let graph = fixture("wine.ttl");
+    let saved = dir.join("saved.json").to_string_lossy().into_owned();
+    let extras: [&[&str]; 5] = [
+        &["--baseline"],
+        &["--graph", &graph],
+        &["--dataset", "worked-example"],
+        &["--hops", "2"],
+        &["--save-trace", &saved],
+    ];
+    for extra in extras {
+        cli()
+            .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+            .args(["--trace", trace.to_str().unwrap()])
+            .args(extra)
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("cannot be used with"));
+    }
+}
+
+#[test]
+fn a_baseline_named_off_target_points_at_the_flags_and_keeps_its_trace() {
+    // Grading refuses the trace (exit 2); with --baseline the user typed
+    // no trace, so the error names the flags that named its graph, and the
+    // saved trace is there to look at.
+    let saved = tempdir().join("saved.json");
+    let out = cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+        .args(["--dataset", &wine_benchmark().target_graph().dataset])
+        .args(["--dataset-version", "9.9.9"])
+        .args(["--save-trace", saved.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(stderr.contains("--dataset-version"), "{stderr}");
+    assert!(saved.exists(), "{stderr}");
+}
+
+#[test]
 fn a_wrong_answer_fails_the_no_wrong_answers_requirement() {
     // Each spoils one question of an otherwise perfect trace in a way that
     // is an answer, not an abstention.
@@ -114,14 +194,7 @@ fn a_wrong_answer_fails_the_no_wrong_answers_requirement() {
 /// graph, and return the trace's path.
 fn baseline_trace(dir: &Path, graphs: &[&Path]) -> PathBuf {
     let trace = dir.join("trace.json");
-    let mut baseline = cli();
-    baseline.arg("baseline");
-    for graph in graphs {
-        baseline.arg("--graph").arg(graph);
-    }
-    baseline
-        .args(wine_graph_args())
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
+    over_wine("baseline", graphs)
         .args(["--output", trace.to_str().unwrap()])
         .assert()
         .success();
@@ -129,16 +202,35 @@ fn baseline_trace(dir: &Path, graphs: &[&Path]) -> PathBuf {
     trace
 }
 
-/// Grade `trace` against wine's benchmark with `args` added, as JSON, and
-/// return the exit code and the report. An exit code that is not a grade
-/// (2, unusable input) panics with the binary's stderr.
+/// `subcommand` (`baseline`, or `grade` with `--baseline`) over `graphs`,
+/// named as wine's benchmark targets its graph.
+fn over_wine(subcommand: &str, graphs: &[&Path]) -> Command {
+    let mut cmd = cli();
+    cmd.arg(subcommand);
+    for graph in graphs {
+        cmd.arg("--graph").arg(graph);
+    }
+    cmd.args(wine_graph_args())
+        .args(["--benchmark", &fixture("wine-benchmark.ttl")]);
+    cmd
+}
+
+/// Grade `trace` against wine's benchmark with `args` added, as
+/// [`report_json`] does.
 fn grade_json(trace: &Path, args: &[&str]) -> (Option<i32>, serde_json::Value) {
-    let out = cli()
-        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
-        .args(args)
-        .output()
-        .unwrap();
+    report_json(
+        cli()
+            .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+            .args(["--trace", trace.to_str().unwrap()])
+            .args(args),
+    )
+}
+
+/// Run a grading command with `--format json` and return the exit code and
+/// the report. An exit code that is not a grade (2, unusable input) panics
+/// with the binary's stderr.
+fn report_json(cmd: &mut Command) -> (Option<i32>, serde_json::Value) {
+    let out = cmd.args(["--format", "json"]).output().unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         matches!(out.status.code(), Some(0 | 1)),
@@ -283,15 +375,11 @@ fn empty_trace(dir: &Path, benchmark: &str, graph: Graph) -> PathBuf {
 fn baseline_reads_every_graph_given() {
     let dir = tempdir();
     let (first, second) = split_wine(&dir);
-    let whole = grade_baseline_over(&dir, &[&common::fixture_path("wine.ttl")]);
-    assert_eq!(
-        grade_baseline_over(&dir, &[&first, &second]),
-        whole,
-        "both halves"
-    );
+    let whole = passed_over(&dir, &[&common::fixture_path("wine.ttl")]);
+    assert_eq!(passed_over(&dir, &[&first, &second]), whole, "both halves");
     // Each half alone misses anchors, so matching the whole needed both.
-    assert!(grade_baseline_over(&dir, &[&first]) < whole, "first half");
-    assert!(grade_baseline_over(&dir, &[&second]) < whole, "second half");
+    assert!(passed_over(&dir, &[&first]) < whole, "first half");
+    assert!(passed_over(&dir, &[&second]) < whole, "second half");
 }
 
 #[test]
@@ -299,11 +387,7 @@ fn a_graph_that_fails_to_load_is_named() {
     let dir = tempdir();
     let broken = dir.join("broken.ttl");
     std::fs::write(&broken, "this is not turtle").unwrap();
-    let out = cli()
-        .args(["baseline", "--graph", &fixture("wine.ttl")])
-        .args(["--graph", broken.to_str().unwrap()])
-        .args(wine_graph_args())
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
+    let out = over_wine("baseline", &[&common::fixture_path("wine.ttl"), &broken])
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(2));
@@ -315,7 +399,7 @@ fn a_graph_that_fails_to_load_is_named() {
 
 /// Run the baseline over `graphs`, grade its trace against wine's
 /// benchmark, and return how many questions passed.
-fn grade_baseline_over(dir: &Path, graphs: &[&Path]) -> u64 {
+fn passed_over(dir: &Path, graphs: &[&Path]) -> u64 {
     let trace = baseline_trace(dir, graphs);
     let (_, json) = grade_json(&trace, &[]);
     json["summary"]["passed"].as_u64().unwrap()

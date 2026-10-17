@@ -26,7 +26,9 @@ pub fn Install() -> impl IntoView {
             <p class="mt-4 text-sm text-chalk-50/80">
                 "One binary with three commands: "
                 <code class="text-chalk-yellow">"grade"</code>
-                " scores a trace, "
+                " scores a trace (with "
+                <code class="text-chalk-yellow">"--baseline"</code>
+                ", the baseline's, run in the same step), "
                 <code class="text-chalk-yellow">"baseline"</code>
                 " runs a deliberately naive retriever over a graph, and "
                 <code class="text-chalk-yellow">"trace-schema"</code>

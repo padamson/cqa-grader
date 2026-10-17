@@ -24,7 +24,7 @@ pub fn Example() -> impl IntoView {
                 <CodeBlock html=snippets::EXAMPLE_OUTPUT_TXT caption="the report"/>
             </div>
             <div class="mt-5">
-                <CodeBlock html=snippets::CI_STEP_YAML caption="the same two commands, in a benchmark repository's CI"/>
+                <CodeBlock html=snippets::CI_STEP_YAML caption="as one command, in a benchmark repository's CI"/>
             </div>
         </section>
     }

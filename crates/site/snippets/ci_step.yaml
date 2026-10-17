@@ -6,8 +6,7 @@
 # move with each release, or grading exits 2.
 - name: Grade the baseline against the benchmark
   run: |
-    cqa-grader baseline --graph site/artifacts/wine.ttl \
-      --dataset worked-example --dataset-version 0.2.1 \
-      --benchmark site/artifacts/wine-benchmark.ttl --output trace.json
     cqa-grader grade --benchmark site/artifacts/wine-benchmark.ttl \
-      --trace trace.json --require no-wrong-answers --report report.json
+      --baseline --graph site/artifacts/wine.ttl \
+      --dataset worked-example --dataset-version 0.2.1 \
+      --require no-wrong-answers --report report.json
