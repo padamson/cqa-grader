@@ -38,7 +38,7 @@ jobs:
           shared-key: dogfood
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.87.28
+        uses: taiki-e/install-action@v2.88.0
         with:
           tool: cargo-nextest
 
@@ -67,7 +67,7 @@ jobs:
 
       - name: Install wasm-pack (panschema build prerequisite)
         if: steps.cache-panschema.outputs.cache-hit != 'true'
-        uses: taiki-e/install-action@v2.87.28
+        uses: taiki-e/install-action@v2.88.0
         with:
           tool: wasm-pack
 
