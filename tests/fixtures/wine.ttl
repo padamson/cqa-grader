@@ -6,9 +6,16 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+
+[] a dcat:Dataset;
+  dcterms:conformsTo <https://w3id.org/wine-linkml/>;
+  dcterms:identifier "worked-example";
+  dcat:version "0.2.1".
 
 <https://w3id.org/wine-linkml/> a owl:Ontology;
-  <http://purl.org/dc/terms/license> <https://creativecommons.org/licenses/by/4.0/>;
+  dcterms:license <https://creativecommons.org/licenses/by/4.0/>;
   rdfs:comment "An ontology of food and wine: the kinds of wine, the foods they\naccompany, and the characteristics that make a wine appropriate for a\ndish. It is built for applications that recommend good wine-and-food\npairings.";
   owl:versionIRI wine:0.2.1;
   owl:versionInfo "0.2.1".
@@ -18,31 +25,31 @@ wine:BodyEnum a owl:Class;
   rdfs:label "BodyEnum";
   owl:oneOf <https://w3id.org/wine-linkml/BodyEnum/valuecell0>.
 
-<https://w3id.org/wine-linkml/BodyEnum/full> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/BodyEnum#full> a owl:NamedIndividual,
     wine:BodyEnum;
   rdfs:comment "High perceived weight, typically with higher alcohol and extract.";
   rdfs:label "full".
 
-<https://w3id.org/wine-linkml/BodyEnum/light> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/BodyEnum#light> a owl:NamedIndividual,
     wine:BodyEnum;
   rdfs:comment "Low perceived weight on the palate.";
   rdfs:label "light".
 
-<https://w3id.org/wine-linkml/BodyEnum/medium> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/BodyEnum#medium> a owl:NamedIndividual,
     wine:BodyEnum;
   rdfs:comment "Intermediate perceived weight on the palate.";
   rdfs:label "medium".
 
 <https://w3id.org/wine-linkml/BodyEnum/valuecell0>
-  rdf:first <https://w3id.org/wine-linkml/BodyEnum/full>;
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum#full>;
   rdf:rest <https://w3id.org/wine-linkml/BodyEnum/valuecell1>.
 
 <https://w3id.org/wine-linkml/BodyEnum/valuecell1>
-  rdf:first <https://w3id.org/wine-linkml/BodyEnum/light>;
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum#light>;
   rdf:rest <https://w3id.org/wine-linkml/BodyEnum/valuecell2>.
 
 <https://w3id.org/wine-linkml/BodyEnum/valuecell2>
-  rdf:first <https://w3id.org/wine-linkml/BodyEnum/medium>;
+  rdf:first <https://w3id.org/wine-linkml/BodyEnum#medium>;
   rdf:rest ().
 
 wine:FlavorEnum a owl:Class;
@@ -50,31 +57,31 @@ wine:FlavorEnum a owl:Class;
   rdfs:label "FlavorEnum";
   owl:oneOf <https://w3id.org/wine-linkml/FlavorEnum/valuecell0>.
 
-<https://w3id.org/wine-linkml/FlavorEnum/delicate> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/FlavorEnum#delicate> a owl:NamedIndividual,
     wine:FlavorEnum;
   rdfs:comment "A subtle, low-intensity impression.";
   rdfs:label "delicate".
 
-<https://w3id.org/wine-linkml/FlavorEnum/moderate> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/FlavorEnum#moderate> a owl:NamedIndividual,
     wine:FlavorEnum;
   rdfs:comment "An intermediate-intensity impression.";
   rdfs:label "moderate".
 
-<https://w3id.org/wine-linkml/FlavorEnum/strong> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/FlavorEnum#strong> a owl:NamedIndividual,
     wine:FlavorEnum;
   rdfs:comment "A pronounced, high-intensity impression.";
   rdfs:label "strong".
 
 <https://w3id.org/wine-linkml/FlavorEnum/valuecell0>
-  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum#delicate>;
   rdf:rest <https://w3id.org/wine-linkml/FlavorEnum/valuecell1>.
 
 <https://w3id.org/wine-linkml/FlavorEnum/valuecell1>
-  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum#moderate>;
   rdf:rest <https://w3id.org/wine-linkml/FlavorEnum/valuecell2>.
 
 <https://w3id.org/wine-linkml/FlavorEnum/valuecell2>
-  rdf:first <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  rdf:first <https://w3id.org/wine-linkml/FlavorEnum#strong>;
   rdf:rest ().
 
 wine:Food a owl:Class;
@@ -97,31 +104,31 @@ wine:SugarEnum a owl:Class;
   rdfs:label "SugarEnum";
   owl:oneOf <https://w3id.org/wine-linkml/SugarEnum/valuecell0>.
 
-<https://w3id.org/wine-linkml/SugarEnum/dry> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/SugarEnum#dry> a owl:NamedIndividual,
     wine:SugarEnum;
   rdfs:comment "Little or no perceptible residual sugar.";
   rdfs:label "dry".
 
-<https://w3id.org/wine-linkml/SugarEnum/off-dry> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/SugarEnum#off-dry> a owl:NamedIndividual,
     wine:SugarEnum;
   rdfs:comment "Slightly perceptible residual sugar.";
   rdfs:label "off-dry".
 
-<https://w3id.org/wine-linkml/SugarEnum/sweet> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/SugarEnum#sweet> a owl:NamedIndividual,
     wine:SugarEnum;
   rdfs:comment "Clearly perceptible residual sugar.";
   rdfs:label "sweet".
 
 <https://w3id.org/wine-linkml/SugarEnum/valuecell0>
-  rdf:first <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum#dry>;
   rdf:rest <https://w3id.org/wine-linkml/SugarEnum/valuecell1>.
 
 <https://w3id.org/wine-linkml/SugarEnum/valuecell1>
-  rdf:first <https://w3id.org/wine-linkml/SugarEnum/off-dry>;
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum#off-dry>;
   rdf:rest <https://w3id.org/wine-linkml/SugarEnum/valuecell2>.
 
 <https://w3id.org/wine-linkml/SugarEnum/valuecell2>
-  rdf:first <https://w3id.org/wine-linkml/SugarEnum/sweet>;
+  rdf:first <https://w3id.org/wine-linkml/SugarEnum#sweet>;
   rdf:rest ().
 
 wine:VerdictEnum a owl:Class;
@@ -129,40 +136,40 @@ wine:VerdictEnum a owl:Class;
   rdfs:label "VerdictEnum";
   owl:oneOf <https://w3id.org/wine-linkml/VerdictEnum/valuecell0>.
 
-<https://w3id.org/wine-linkml/VerdictEnum/average> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/VerdictEnum#average> a owl:NamedIndividual,
     wine:VerdictEnum;
   rdfs:comment "Typical quality.";
   rdfs:label "average".
 
-<https://w3id.org/wine-linkml/VerdictEnum/exceptional> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/VerdictEnum#exceptional> a owl:NamedIndividual,
     wine:VerdictEnum;
   rdfs:comment "Well above the typical quality of comparable years.";
   rdfs:label "exceptional".
 
-<https://w3id.org/wine-linkml/VerdictEnum/good> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/VerdictEnum#good> a owl:NamedIndividual,
     wine:VerdictEnum;
   rdfs:comment "Above typical quality.";
   rdfs:label "good".
 
-<https://w3id.org/wine-linkml/VerdictEnum/poor> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/VerdictEnum#poor> a owl:NamedIndividual,
     wine:VerdictEnum;
   rdfs:comment "Below typical quality.";
   rdfs:label "poor".
 
 <https://w3id.org/wine-linkml/VerdictEnum/valuecell0>
-  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/average>;
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum#average>;
   rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell1>.
 
 <https://w3id.org/wine-linkml/VerdictEnum/valuecell1>
-  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/exceptional>;
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum#exceptional>;
   rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell2>.
 
 <https://w3id.org/wine-linkml/VerdictEnum/valuecell2>
-  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/good>;
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum#good>;
   rdf:rest <https://w3id.org/wine-linkml/VerdictEnum/valuecell3>.
 
 <https://w3id.org/wine-linkml/VerdictEnum/valuecell3>
-  rdf:first <https://w3id.org/wine-linkml/VerdictEnum/poor>;
+  rdf:first <https://w3id.org/wine-linkml/VerdictEnum#poor>;
   rdf:rest ().
 
 wine:VintageAssessment a owl:Class;
@@ -189,32 +196,32 @@ wine:WineColorEnum a owl:Class;
   rdfs:label "WineColorEnum";
   owl:oneOf <https://w3id.org/wine-linkml/WineColorEnum/valuecell0>.
 
-<https://w3id.org/wine-linkml/WineColorEnum/red> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/WineColorEnum#red> a owl:NamedIndividual,
     wine:WineColorEnum;
   rdfs:comment "Fermented with extended contact between juice and dark grape skins.";
   rdfs:label "red".
 
-<https://w3id.org/wine-linkml/WineColorEnum/rosé> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/WineColorEnum#ros%C3%A9> a owl:NamedIndividual,
     wine:WineColorEnum;
   rdfs:comment "Fermented with brief skin contact, sitting between white and red.";
   rdfs:label "rosé".
 
-<https://w3id.org/wine-linkml/WineColorEnum/valuecell0>
-  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell1>.
-
-<https://w3id.org/wine-linkml/WineColorEnum/valuecell1>
-  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/rosé>;
-  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell2>.
-
-<https://w3id.org/wine-linkml/WineColorEnum/valuecell2>
-  rdf:first <https://w3id.org/wine-linkml/WineColorEnum/white>;
-  rdf:rest ().
-
-<https://w3id.org/wine-linkml/WineColorEnum/white> a owl:NamedIndividual,
+<https://w3id.org/wine-linkml/WineColorEnum#white> a owl:NamedIndividual,
     wine:WineColorEnum;
   rdfs:comment "Fermented with minimal skin contact, typically from pale-skinned grapes.";
   rdfs:label "white".
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell0>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell1>.
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell1>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum#ros%C3%A9>;
+  rdf:rest <https://w3id.org/wine-linkml/WineColorEnum/valuecell2>.
+
+<https://w3id.org/wine-linkml/WineColorEnum/valuecell2>
+  rdf:first <https://w3id.org/wine-linkml/WineColorEnum#white>;
+  rdf:rest ().
 
 wine:WineRegion a owl:Class;
   rdfs:comment "A geographic wine-growing region, such as Napa or Bordeaux.";
@@ -246,26 +253,26 @@ wine:bordeaux-region a owl:NamedIndividual,
 wine:bordeaux-wine a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Bordeaux";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#strong>;
   wine:id "bordeaux-wine";
   wine:made_from_grape wine:cabernet-sauvignon-grape,
     wine:merlot;
   wine:name "Bordeaux";
   wine:region wine:bordeaux-region;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:cabernet-sauvignon a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Cabernet Sauvignon";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#strong>;
   wine:id "cabernet-sauvignon";
   wine:made_from_grape wine:cabernet-sauvignon-grape;
   wine:name "Cabernet Sauvignon";
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:cabernet-sauvignon-grape a owl:NamedIndividual,
     wine:Grape;
@@ -288,15 +295,15 @@ wine:chateau-morgon a owl:NamedIndividual,
 wine:chateau-morgon-beaujolais a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Chateau Morgon Beaujolais";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#delicate>;
   wine:id "chateau-morgon-beaujolais";
   wine:made_from_grape wine:gamay;
   wine:maker wine:chateau-morgon;
   wine:name "Chateau Morgon Beaujolais";
   wine:region wine:beaujolais;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:color a owl:ObjectProperty;
   rdfs:comment "The hue a wine kind presents, imparted chiefly by the extent of grape-skin contact during maceration and shifted by variety and age.";
@@ -356,14 +363,14 @@ wine:id a owl:DatatypeProperty;
 wine:late-harvest-riesling a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Late Harvest Riesling";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#strong>;
   wine:id "late-harvest-riesling";
   wine:made_from_grape wine:riesling;
   wine:name "Late Harvest Riesling";
   wine:region wine:mosel;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/sweet>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#sweet>.
 
 wine:made_from_grape a owl:ObjectProperty;
   rdfs:comment "The grape variety or varieties a wine kind is made from.";
@@ -390,14 +397,14 @@ wine:mosel a owl:NamedIndividual,
 wine:mosel-riesling a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Mosel Riesling";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#moderate>;
   wine:id "mosel-riesling";
   wine:made_from_grape wine:riesling;
   wine:name "Mosel Riesling";
   wine:region wine:mosel;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/off-dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#off-dry>.
 
 wine:name a owl:DatatypeProperty;
   rdfs:comment "The name by which a kind, place, producer, or recommendation is known. Every class carries it.";
@@ -419,42 +426,42 @@ wine:napa-cellars a owl:NamedIndividual,
 wine:napa-chardonnay a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Napa Chardonnay";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/white>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#white>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#moderate>;
   wine:id "napa-chardonnay";
   wine:made_from_grape wine:chardonnay;
   wine:maker wine:napa-cellars;
   wine:name "Napa Chardonnay";
   wine:region wine:napa;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:napa-zinfandel-2017 a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Napa Zinfandel 2017";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/medium>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#medium>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#moderate>;
   wine:id "napa-zinfandel-2017";
   wine:made_from_grape wine:zinfandel;
   wine:maker wine:napa-cellars;
   wine:name "Napa Zinfandel 2017";
   wine:region wine:napa;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>;
   wine:vintage wine:vy-2017.
 
 wine:napa-zinfandel-2018 a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Napa Zinfandel 2018";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/full>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/strong>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#full>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#strong>;
   wine:id "napa-zinfandel-2018";
   wine:made_from_grape wine:zinfandel;
   wine:maker wine:napa-cellars;
   wine:name "Napa Zinfandel 2018";
   wine:region wine:napa;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>;
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>;
   wine:vintage wine:vy-2018.
 
 wine:pairing_recommendations a owl:ObjectProperty;
@@ -505,14 +512,14 @@ wine:provence a owl:NamedIndividual,
 wine:provence-rose a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Provence Rosé";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/light>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/rosé>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/delicate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#light>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#ros%C3%A9>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#delicate>;
   wine:id "provence-rose";
   wine:made_from_grape wine:grenache;
   wine:name "Provence Rosé";
   wine:region wine:provence;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:rationale a owl:DatatypeProperty;
   rdfs:comment "The reasoning behind a recommendation or a verdict, in prose.";
@@ -556,15 +563,15 @@ wine:source a owl:DatatypeProperty;
 wine:sterling-merlot a owl:NamedIndividual,
     wine:Wine;
   rdfs:label "Sterling Vineyards Merlot";
-  wine:body <https://w3id.org/wine-linkml/BodyEnum/medium>;
-  wine:color <https://w3id.org/wine-linkml/WineColorEnum/red>;
-  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum/moderate>;
+  wine:body <https://w3id.org/wine-linkml/BodyEnum#medium>;
+  wine:color <https://w3id.org/wine-linkml/WineColorEnum#red>;
+  wine:flavor <https://w3id.org/wine-linkml/FlavorEnum#moderate>;
   wine:id "sterling-merlot";
   wine:made_from_grape wine:merlot;
   wine:maker wine:sterling-vineyards;
   wine:name "Sterling Vineyards Merlot";
   wine:region wine:napa;
-  wine:sugar <https://w3id.org/wine-linkml/SugarEnum/dry>.
+  wine:sugar <https://w3id.org/wine-linkml/SugarEnum#dry>.
 
 wine:sterling-vineyards a owl:NamedIndividual,
     wine:Winery;
@@ -585,7 +592,7 @@ wine:va-late-harvest-riesling a owl:NamedIndividual,
   wine:name "Late Harvest Riesling assessment";
   wine:rationale "A long, dry autumn let botrytis concentrate the sugars fully, giving a depth and balance that lift the vintage well above its peers.";
   wine:source "Regional vintage chart";
-  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/exceptional>;
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum#exceptional>;
   wine:wine wine:late-harvest-riesling.
 
 wine:va-napa-zin-2017 a owl:NamedIndividual,
@@ -595,7 +602,7 @@ wine:va-napa-zin-2017 a owl:NamedIndividual,
   wine:id "va-napa-zin-2017";
   wine:name "Napa Zinfandel 2017 assessment";
   wine:source "Regional vintage chart";
-  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/average>;
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum#average>;
   wine:wine wine:napa-zinfandel-2017.
 
 wine:va-napa-zin-2018 a owl:NamedIndividual,
@@ -605,7 +612,7 @@ wine:va-napa-zin-2018 a owl:NamedIndividual,
   wine:id "va-napa-zin-2018";
   wine:name "Napa Zinfandel 2018 assessment";
   wine:source "Regional vintage chart";
-  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/good>;
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum#good>;
   wine:wine wine:napa-zinfandel-2018.
 
 wine:va-provence-rose a owl:NamedIndividual,
@@ -616,7 +623,7 @@ wine:va-provence-rose a owl:NamedIndividual,
   wine:name "Provence Rosé assessment";
   wine:rationale "A cool, wet growing season left the fruit underripe and the wine thin and short, below the appellation's usual standard.";
   wine:source "Regional vintage chart";
-  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum/poor>;
+  wine:verdict <https://w3id.org/wine-linkml/VerdictEnum#poor>;
   wine:wine wine:provence-rose.
 
 wine:verdict a owl:ObjectProperty;

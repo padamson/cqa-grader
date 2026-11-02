@@ -8,9 +8,16 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+
+[] a dcat:Dataset;
+  dcterms:conformsTo <https://w3id.org/cqa/>;
+  dcterms:identifier "benchmark";
+  dcat:version "0.2.1".
 
 <https://w3id.org/cqa/> a owl:Ontology;
-  <http://purl.org/dc/terms/license> <https://creativecommons.org/licenses/by/4.0/>;
+  dcterms:license <https://creativecommons.org/licenses/by/4.0/>;
   rdfs:comment "A vocabulary for competency question benchmarks over a knowledge\ngraph. One record pairs a question with the specification of its\ncorrect answer: the answer in prose, the kind of answering the\nquestion demands, and the records a correct answer must retrieve\nand cite. The graph being evaluated is external — its records are\nreferenced by IRI rather than held here.";
   owl:versionIRI cqa:0.1.1;
   owl:versionInfo "0.1.1".
@@ -20,49 +27,49 @@ cqa:AnswerKindEnum a owl:Class;
   rdfs:label "AnswerKindEnum";
   owl:oneOf <https://w3id.org/cqa/AnswerKindEnum/valuecell0>.
 
-<https://w3id.org/cqa/AnswerKindEnum/attribution> a owl:NamedIndividual,
+<https://w3id.org/cqa/AnswerKindEnum#attribution> a owl:NamedIndividual,
     cqa:AnswerKindEnum;
   rdfs:comment "An answer that must carry the source it rests on. The question is answerable without it, but not answerable well.";
   rdfs:label "attribution".
 
-<https://w3id.org/cqa/AnswerKindEnum/closed-world-negative> a owl:NamedIndividual,
+<https://w3id.org/cqa/AnswerKindEnum#closed-world-negative> a owl:NamedIndividual,
     cqa:AnswerKindEnum;
   rdfs:comment "The correct answer is that the graph holds no such record. Absence of a record is not evidence against the claim, only absence of a claim for it.";
   rdfs:label "closed-world-negative".
 
-<https://w3id.org/cqa/AnswerKindEnum/comparison> a owl:NamedIndividual,
+<https://w3id.org/cqa/AnswerKindEnum#comparison> a owl:NamedIndividual,
     cqa:AnswerKindEnum;
   rdfs:comment "Two or more records set against each other on a shared slot.";
   rdfs:label "comparison".
 
-<https://w3id.org/cqa/AnswerKindEnum/lookup> a owl:NamedIndividual,
+<https://w3id.org/cqa/AnswerKindEnum#lookup> a owl:NamedIndividual,
     cqa:AnswerKindEnum;
   rdfs:comment "A value read from a single record.";
   rdfs:label "lookup".
 
-<https://w3id.org/cqa/AnswerKindEnum/synthesis> a owl:NamedIndividual,
+<https://w3id.org/cqa/AnswerKindEnum#synthesis> a owl:NamedIndividual,
     cqa:AnswerKindEnum;
   rdfs:comment "A pattern across several records that no single record states.";
   rdfs:label "synthesis".
 
 <https://w3id.org/cqa/AnswerKindEnum/valuecell0>
-  rdf:first <https://w3id.org/cqa/AnswerKindEnum/attribution>;
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum#attribution>;
   rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell1>.
 
 <https://w3id.org/cqa/AnswerKindEnum/valuecell1>
-  rdf:first <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum#closed-world-negative>;
   rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell2>.
 
 <https://w3id.org/cqa/AnswerKindEnum/valuecell2>
-  rdf:first <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum#comparison>;
   rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell3>.
 
 <https://w3id.org/cqa/AnswerKindEnum/valuecell3>
-  rdf:first <https://w3id.org/cqa/AnswerKindEnum/lookup>;
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum#lookup>;
   rdf:rest <https://w3id.org/cqa/AnswerKindEnum/valuecell4>.
 
 <https://w3id.org/cqa/AnswerKindEnum/valuecell4>
-  rdf:first <https://w3id.org/cqa/AnswerKindEnum/synthesis>;
+  rdf:first <https://w3id.org/cqa/AnswerKindEnum#synthesis>;
   rdf:rest ().
 
 cqa:Benchmark a owl:Class;
@@ -179,7 +186,7 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-02> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Bordeaux colour";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/lookup>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#lookup>;
   cqa:expected_anchors <https://w3id.org/wine-linkml/bordeaux-wine>;
   cqa:ground_truth "Red. The bordeaux-wine record carries color: red — a lookup by name, one hop to a value.";
   cqa:id "cq-02";
@@ -189,7 +196,7 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-03> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Cabernet Sauvignon with seafood";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#closed-world-negative>;
   cqa:connecting_class "https://w3id.org/wine-linkml/PairingRecommendation"^^xsd:anyURI;
   cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
     <https://w3id.org/wine-linkml/seafood-dish>;
@@ -203,7 +210,7 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-04> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Wine for grilled meat";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/attribution>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#attribution>;
   cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
     <https://w3id.org/wine-linkml/grilled-meat>,
     <https://w3id.org/wine-linkml/pr-cabsauv-grilledmeat>;
@@ -216,7 +223,7 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-05> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Characteristics affecting a pairing";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/synthesis>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#synthesis>;
   cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
     <https://w3id.org/wine-linkml/chateau-morgon-beaujolais>,
     <https://w3id.org/wine-linkml/napa-chardonnay>,
@@ -234,7 +241,7 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-06> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Vintage variation";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#comparison>;
   cqa:expected_anchors <https://w3id.org/wine-linkml/napa-zinfandel-2017>,
     <https://w3id.org/wine-linkml/napa-zinfandel-2018>,
     <https://w3id.org/wine-linkml/vy-2017>,
@@ -247,8 +254,8 @@ cqa:wine-benchmark a owl:NamedIndividual,
 <https://w3id.org/cqa/wine-benchmark/cq-07> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
   rdfs:label "Good vintages for Napa Zinfandel";
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/attribution>,
-    <https://w3id.org/cqa/AnswerKindEnum/comparison>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#attribution>,
+    <https://w3id.org/cqa/AnswerKindEnum#comparison>;
   cqa:expected_anchors <https://w3id.org/wine-linkml/napa-zinfandel-2017>,
     <https://w3id.org/wine-linkml/napa-zinfandel-2018>,
     <https://w3id.org/wine-linkml/va-napa-zin-2017>,

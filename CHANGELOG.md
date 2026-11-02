@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Read a `cqa:Benchmark` from its published Turtle artifact (`Benchmark`).
+  An answer kind reads from either IRI form under `cqa:AnswerKindEnum`:
+  `AnswerKindEnum#lookup` (LinkML's gen-owl, and panschema after its 0.4.0
+  release) or `AnswerKindEnum/lookup` (panschema's 0.4.0 release). An IRI
+  outside that enum is an unknown answer kind.
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
 - `grade`: four base checks per question (`attempted`, `anchors-reached`,

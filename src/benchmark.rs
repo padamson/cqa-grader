@@ -52,8 +52,14 @@ impl AnswerKind {
         }
     }
 
+    /// The kind a value IRI under `cqa:AnswerKindEnum` names, minted as
+    /// `{enum}#{value}` (as LinkML's gen-owl does) or, by panschema's 0.4.0
+    /// release, `{enum}/{value}`.
     fn from_iri(iri: &str) -> Option<Self> {
-        let name = iri.rsplit('/').next()?;
+        let name = iri
+            .strip_prefix(CQA)?
+            .strip_prefix("AnswerKindEnum")?
+            .strip_prefix(['#', '/'])?;
         let de: serde::de::value::StrDeserializer<serde::de::value::Error> =
             name.into_deserializer();
         AnswerKind::deserialize(de).ok()
@@ -418,14 +424,14 @@ pub(crate) mod tests {
     }
 
     /// What makes a question gradable beyond its id, text and ground truth.
-    const GRADABLE: &str = "cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/lookup> ; \
+    const GRADABLE: &str = "cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#lookup> ; \
                             cqa:expected_anchors ex:r1";
 
     const TWO_QUESTIONS: &str = "
         ex:q1 cqa:id \"q1\" ; cqa:question \"one?\" ; cqa:ground_truth \"One.\" ;
-          cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/lookup> ; cqa:expected_anchors ex:r1 .
+          cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#lookup> ; cqa:expected_anchors ex:r1 .
         ex:q2 cqa:id \"q2\" ; cqa:question \"two?\" ; cqa:ground_truth \"Two.\" ;
-          cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/lookup> ; cqa:expected_anchors ex:r1 .";
+          cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#lookup> ; cqa:expected_anchors ex:r1 .";
 
     #[test]
     fn a_benchmark_with_two_names_is_still_one_benchmark() {
@@ -490,11 +496,25 @@ pub(crate) mod tests {
         // question grades on `asserts_absence` alone.
         let questions = format!(
             "{TWO_QUESTIONS}
-             ex:q2 cqa:answer_kind <{CQA}AnswerKindEnum/closed-world-negative> ."
+             ex:q2 cqa:answer_kind <{CQA}AnswerKindEnum#closed-world-negative> ."
         );
         let err = Benchmark::from_turtle(&benchmark_with("", &questions)).unwrap_err();
         assert!(
             matches!(&err, Error::Benchmark(m) if m.contains("q2") && m.contains("unconnected_anchors")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn an_answer_kind_outside_cqas_enum_is_an_error_naming_it() {
+        let questions = format!(
+            "{TWO_QUESTIONS}
+             ex:q2 cqa:answer_kind <https://example.org/AnswerKindEnum#lookup> ."
+        );
+        let err = Benchmark::from_turtle(&benchmark_with("", &questions)).unwrap_err();
+        assert!(
+            matches!(&err, Error::Benchmark(m)
+                if m.contains("q2") && m.contains("<https://example.org/AnswerKindEnum#lookup>")),
             "{err}"
         );
     }
@@ -507,19 +527,32 @@ pub(crate) mod tests {
 
     #[test]
     fn answer_kind_round_trips_through_its_name() {
-        for kind in [
-            AnswerKind::Lookup,
-            AnswerKind::ClosedWorldNegative,
-            AnswerKind::Comparison,
-            AnswerKind::Synthesis,
-            AnswerKind::Attribution,
-        ] {
-            let iri = format!("{CQA}AnswerKindEnum/{}", kind.as_str());
-            assert_eq!(AnswerKind::from_iri(&iri), Some(kind));
+        for sep in ['#', '/'] {
+            for kind in [
+                AnswerKind::Lookup,
+                AnswerKind::ClosedWorldNegative,
+                AnswerKind::Comparison,
+                AnswerKind::Synthesis,
+                AnswerKind::Attribution,
+            ] {
+                let iri = format!("{CQA}AnswerKindEnum{sep}{}", kind.as_str());
+                assert_eq!(AnswerKind::from_iri(&iri), Some(kind), "{iri}");
+            }
         }
-        assert_eq!(
-            AnswerKind::from_iri("https://example.org/no-such-kind"),
-            None
-        );
+    }
+
+    #[test]
+    fn a_kind_name_outside_cqas_enum_is_no_kind() {
+        for iri in [
+            "https://example.org/no-such-kind".to_string(),
+            "https://example.org/AnswerKindEnum#lookup".to_string(),
+            "https://example.org/AnswerKindEnum/lookup".to_string(),
+            format!("{CQA}lookup"),
+            format!("{CQA}OtherEnum#lookup"),
+            format!("{CQA}AnswerKindEnumlookup"),
+            format!("{CQA}AnswerKindEnum#foo/lookup"),
+        ] {
+            assert_eq!(AnswerKind::from_iri(&iri), None, "{iri}");
+        }
     }
 }

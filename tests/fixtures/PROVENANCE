@@ -1,4 +1,4 @@
 # Written by scripts/regen-fixtures.sh; do not edit.
-ontology-authoring-template v0.2.1-11-g7c828b39dd24
-cqa-schema v0.1.1
-panschema 0.4.0 (4032729)
+ontology-authoring-template v0.2.1-12-g026903ee4f60
+cqa-schema v0.1.1-1-gea512318b190
+panschema 0.4.0 (ffae5da)

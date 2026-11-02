@@ -1,6 +1,6 @@
 <https://w3id.org/cqa/wine-benchmark/cq-03> a owl:NamedIndividual,
     cqa:CompetencyQuestionAnswer;
-  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum/closed-world-negative>;
+  cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#closed-world-negative>;
   cqa:connecting_class "https://w3id.org/wine-linkml/PairingRecommendation"^^xsd:anyURI;
   cqa:expected_anchors <https://w3id.org/wine-linkml/cabernet-sauvignon>,
     <https://w3id.org/wine-linkml/seafood-dish>;

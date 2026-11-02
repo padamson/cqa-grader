@@ -423,9 +423,11 @@ fn split_wine(dir: &Path) -> (PathBuf, PathBuf) {
         let triple = Triple::from(quad.unwrap());
         // Blank-node labels are local to a file, so a triple split from
         // the blank node it points at would point at a different one.
+        // Triples split by subject, so a blank subject's triples (the
+        // graph's dataset node) always land in one file.
         assert!(
-            !triple.subject.is_blank_node() && !triple.object.is_blank_node(),
-            "split_wine cannot split a graph with blank nodes: {triple}"
+            !triple.object.is_blank_node(),
+            "split_wine cannot split a graph that points at a blank node: {triple}"
         );
         let half = if moved.contains(&triple.subject.to_string()) {
             &mut second
