@@ -41,10 +41,6 @@ criteria = "safe-to-deploy"
 version = "0.10.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.cpufeatures]]
-version = "0.3.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.crossbeam-utils]]
 version = "0.8.22"
 criteria = "safe-to-deploy"
@@ -98,7 +94,7 @@ version = "1.21.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxigraph]]
-version = "0.5.11"
+version = "0.5.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxilangtag]]
@@ -110,27 +106,27 @@ version = "0.2.11"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxjsonld]]
-version = "0.2.6"
+version = "0.2.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxrdf]]
-version = "0.3.4"
+version = "0.3.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxrdfio]]
-version = "0.2.6"
+version = "0.2.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxrdfxml]]
-version = "0.2.4"
+version = "0.2.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxsdatatypes]]
-version = "0.2.3"
+version = "0.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.oxttl]]
-version = "0.2.4"
+version = "0.2.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.parking_lot_core]]
@@ -206,19 +202,19 @@ version = "1.16.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.sparesults]]
-version = "0.3.4"
+version = "0.3.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.spareval]]
-version = "0.2.7"
+version = "0.2.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.spargebra]]
-version = "0.4.7"
+version = "0.4.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.sparopt]]
-version = "0.3.7"
+version = "0.3.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.typenum]]
