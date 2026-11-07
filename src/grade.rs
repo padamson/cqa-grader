@@ -307,25 +307,6 @@ fn kinds_label(kinds: &[AnswerKind]) -> String {
         .join("+")
 }
 
-/// The release a version belongs to: `x.y.z-<anything>` is `x.y.z`, so a
-/// graph built on the way to a release (`0.1.0-dev`) grades against a key
-/// pinned to it. Any other string is its own release, so `0.1.0dev` and
-/// `v0.1.0` stay distinct from `0.1.0`.
-fn release(version: &str) -> &str {
-    match version.split_once('-') {
-        Some((core, pre))
-            if !pre.is_empty()
-                && core.split('.').count() == 3
-                && core
-                    .split('.')
-                    .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) =>
-        {
-            core
-        }
-        _ => version,
-    }
-}
-
 /// Grade a trace against a benchmark, holding it to `require`.
 ///
 /// Fails with [`Error::Trace`] when the trace fails [`Trace::check`],
@@ -340,12 +321,9 @@ pub fn grade(benchmark: &Benchmark, trace: &Trace, require: Require) -> Result<R
         )));
     }
     let (ran, target) = (&trace.graph, benchmark.target_graph());
-    if ran.dataset != target.dataset
-        || release(&ran.dataset_version) != release(&target.dataset_version)
-    {
+    if !ran.matches(&target) {
         return Err(Error::Trace(format!(
-            "trace was run over dataset {:?} version {:?}, the benchmark targets {:?} version {:?}",
-            ran.dataset, ran.dataset_version, target.dataset, target.dataset_version
+            "trace was run over dataset {ran}, the benchmark targets {target}"
         )));
     }
 
@@ -944,25 +922,6 @@ mod tests {
             grade(&dev, &t, Require::Answered).is_ok(),
             "trace {pinned}, key {pinned}-dev"
         );
-    }
-
-    #[test]
-    fn only_a_dashed_suffix_on_three_numbers_is_a_pre_release() {
-        for (version, expected) in [
-            ("0.2.1-dev", "0.2.1"),
-            ("0.2.1-alpha.1", "0.2.1"),
-            ("10.20.30-rc-2", "10.20.30"),
-            ("0.2.1", "0.2.1"),
-            ("0.2.1dev", "0.2.1dev"),
-            ("0.2.1-", "0.2.1-"),
-            ("v0.2.1-dev", "v0.2.1-dev"),
-            ("0.2-dev", "0.2-dev"),
-            ("0.2.1.4-dev", "0.2.1.4-dev"),
-            ("0..1-dev", "0..1-dev"),
-            ("worked-example", "worked-example"),
-        ] {
-            assert_eq!(release(version), expected, "{version}");
-        }
     }
 
     #[test]

@@ -35,9 +35,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   `dataset_version`), and grading refuses one whose graph is not the
   benchmark's `target_dataset` at its `target_dataset_version`, with exit
   code 2. A pre-release grades as its release: `0.2.1-dev` matches a key
-  pinned to `0.2.1`, and the other way round. `baseline` takes the two as
-  `--dataset` and `--dataset-version` and records them as given, never
-  copying the benchmark's.
+  pinned to `0.2.1`, and the other way round. `baseline` reads the two from
+  the graph's `dcat:Dataset` node (`Baseline::stated_graph`), as panschema
+  writes it, never copying the benchmark's, so a benchmark's CI passes only
+  `--graph`. Files that name more than one dataset are refused. For a graph
+  with no node, `--dataset` and `--dataset-version` name it; beside a node
+  they must agree with it, or the baseline exits 2.
 - Each question ends `passed`, `unanswered`, `wrong`, or `unattempted`
   (`Outcome`), and the summary counts them; the outcome replaces the
   report's per-question `passed` flag and its `failed` count. Unanswered is a closed-world

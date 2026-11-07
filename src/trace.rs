@@ -38,7 +38,7 @@ pub struct System {
 }
 
 /// The graph a system ran over, named the way a benchmark names its target.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Graph {
     /// The dataset, as the benchmark's `cqa:target_dataset` would name it
@@ -47,6 +47,42 @@ pub struct Graph {
     /// The dataset's version, as `cqa:target_dataset_version` would give
     /// it. A pre-release (`0.2.1-dev`) is graded as its release (`0.2.1`).
     pub dataset_version: String,
+}
+
+impl Graph {
+    /// Whether `other` names the same graph: the same dataset, at the same
+    /// release: a pre-release counts as its release, so `0.2.1-dev`
+    /// matches `0.2.1`.
+    pub fn matches(&self, other: &Graph) -> bool {
+        self.dataset == other.dataset
+            && release(&self.dataset_version) == release(&other.dataset_version)
+    }
+}
+
+/// The release a version belongs to: `x.y.z-<anything>` is `x.y.z`, so a
+/// graph built on the way to a release (`0.1.0-dev`) grades against a key
+/// pinned to it. Any other string is its own release, so `0.1.0dev` and
+/// `v0.1.0` stay distinct from `0.1.0`.
+fn release(version: &str) -> &str {
+    match version.split_once('-') {
+        Some((core, pre))
+            if !pre.is_empty()
+                && core.split('.').count() == 3
+                && core
+                    .split('.')
+                    .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) =>
+        {
+            core
+        }
+        _ => version,
+    }
+}
+
+/// `"worked-example" version "0.2.1"`, as errors name a graph.
+impl std::fmt::Display for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} version {:?}", self.dataset, self.dataset_version)
+    }
 }
 
 /// What a system did with one question.
@@ -196,6 +232,25 @@ pub(crate) fn write_json(path: impl AsRef<Path>, value: &impl Serialize) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_dashed_suffix_on_three_numbers_is_a_pre_release() {
+        for (version, expected) in [
+            ("0.2.1-dev", "0.2.1"),
+            ("0.2.1-alpha.1", "0.2.1"),
+            ("10.20.30-rc-2", "10.20.30"),
+            ("0.2.1", "0.2.1"),
+            ("0.2.1dev", "0.2.1dev"),
+            ("0.2.1-", "0.2.1-"),
+            ("v0.2.1-dev", "v0.2.1-dev"),
+            ("0.2-dev", "0.2-dev"),
+            ("0.2.1.4-dev", "0.2.1.4-dev"),
+            ("0..1-dev", "0..1-dev"),
+            ("worked-example", "worked-example"),
+        ] {
+            assert_eq!(release(version), expected, "{version}");
+        }
+    }
 
     fn graph() -> Graph {
         Graph {

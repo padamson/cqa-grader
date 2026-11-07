@@ -30,10 +30,10 @@ use std::path::Path;
 
 use oxigraph::store::Store;
 
-use crate::Result;
 use crate::benchmark::Benchmark;
 use crate::rdf::{load_turtle, load_turtle_files, select};
 use crate::trace::{Attempt, Graph, System, Trace};
+use crate::{Error, Result};
 
 /// Words that never link a question to a record on their own.
 const STOPWORDS: &[&str] = &[
@@ -126,6 +126,47 @@ impl Baseline {
             individuals,
             classes: classes.into_values().collect(),
         })
+    }
+
+    /// The dataset and version the loaded files say they hold, read from
+    /// the `dcat:Dataset` node panschema writes into each graph it
+    /// publishes: a blank node with `dcterms:identifier` and
+    /// `dcat:version`. `None` when no file carries one. Files that repeat
+    /// the same node state it once; files that name different datasets, a
+    /// node with two names or versions, or a node missing either property,
+    /// are an error. A `dcat:Dataset` with an IRI, or a blank one another
+    /// node points at, is a record in the graph, not the graph's statement
+    /// about itself.
+    pub fn stated_graph(&self) -> Result<Option<Graph>> {
+        let rows = select(
+            &self.store,
+            "PREFIX dcat: <http://www.w3.org/ns/dcat#>
+             PREFIX dcterms: <http://purl.org/dc/terms/>
+             SELECT ?dataset ?version WHERE {
+               ?d a dcat:Dataset .
+               OPTIONAL { ?d dcterms:identifier ?dataset }
+               OPTIONAL { ?d dcat:version ?version }
+               FILTER(isBlank(?d) && NOT EXISTS { ?s ?p ?d })
+             }",
+        )?;
+        let missing = |property| Error::Graph(format!("a dcat:Dataset node has no {property}"));
+        let mut stated = BTreeSet::new();
+        for row in rows {
+            stated.insert(Graph {
+                dataset: row
+                    .get("dataset")
+                    .ok_or_else(|| missing("dcterms:identifier"))?,
+                dataset_version: row.get("version").ok_or_else(|| missing("dcat:version"))?,
+            });
+        }
+        if stated.len() > 1 {
+            let named: Vec<String> = stated.iter().map(Graph::to_string).collect();
+            return Err(Error::Graph(format!(
+                "the graph names more than one dataset: {}",
+                named.join(", ")
+            )));
+        }
+        Ok(stated.pop_first())
     }
 
     /// Run every question in a benchmark and collect the attempts into a trace.
@@ -264,7 +305,6 @@ fn contains_phrase(haystack: &[String], needle: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Error;
     use crate::rdf::add_turtle;
 
     #[test]
@@ -289,7 +329,9 @@ mod tests {
 
     const PREFIXES: &str = "@prefix owl: <http://www.w3.org/2002/07/owl#> .
          @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-         @prefix ex: <http://example.org/> .";
+         @prefix ex: <http://example.org/> .
+         @prefix dcat: <http://www.w3.org/ns/dcat#> .
+         @prefix dcterms: <http://purl.org/dc/terms/> .";
 
     const RECORDS: &str = "ex:alpha a owl:NamedIndividual ; rdfs:label \"Alpha\" .
          ex:bravo a owl:NamedIndividual ; rdfs:label \"Bravo\" .
@@ -298,6 +340,14 @@ mod tests {
 
     fn graph(triples: &str) -> Baseline {
         Baseline::from_turtle(&format!("{PREFIXES} {RECORDS} {triples}")).unwrap()
+    }
+
+    /// The records and `first` in one file, `second` in another, loaded
+    /// into one store.
+    fn two_files(first: &str, second: &str) -> Baseline {
+        let store = load_turtle(&format!("{PREFIXES} {RECORDS} {first}")).unwrap();
+        add_turtle(&store, &format!("{PREFIXES} {second}")).unwrap();
+        Baseline::from_store(store).unwrap()
     }
 
     #[test]
@@ -325,9 +375,7 @@ mod tests {
              ex:alpha ex:near ex:xray .
              ex:xray ex:near ex:red .";
         let whole = graph(edges);
-        let store = load_turtle(&format!("{PREFIXES} {RECORDS}")).unwrap();
-        add_turtle(&store, &format!("{PREFIXES} {edges}")).unwrap();
-        let split = Baseline::from_store(store).unwrap();
+        let split = two_files("", edges);
         for (question, hops) in [("Tell me about Alpha.", 2), ("Which colour is it?", 1)] {
             let expected = whole.retrieve("q", question, hops).unwrap();
             assert_eq!(
@@ -354,6 +402,116 @@ mod tests {
                 assert!(matches!(*source, Error::Io(_)), "{source:?}");
             }
             other => panic!("expected File, got {other:?}"),
+        }
+    }
+
+    /// A `dcat:Dataset` node as panschema writes it, in Turtle with full IRIs.
+    fn dataset_node(subject: &str, identifier: Option<&str>, version: Option<&str>) -> String {
+        let mut node = format!("{subject} a dcat:Dataset");
+        if let Some(identifier) = identifier {
+            node += &format!(" ; dcterms:identifier {identifier:?}");
+        }
+        if let Some(version) = version {
+            node += &format!(" ; dcat:version {version:?}");
+        }
+        node + " ."
+    }
+
+    fn stating(dataset: &str, version: &str) -> Graph {
+        Graph {
+            dataset: dataset.into(),
+            dataset_version: version.into(),
+        }
+    }
+
+    #[test]
+    fn a_graph_states_the_dataset_it_holds() {
+        let g = graph(&dataset_node("[]", Some("worked-example"), Some("0.2.1")));
+        assert_eq!(
+            g.stated_graph().unwrap(),
+            Some(stating("worked-example", "0.2.1"))
+        );
+    }
+
+    #[test]
+    fn a_graph_without_a_dataset_node_states_nothing() {
+        assert_eq!(graph("").stated_graph().unwrap(), None);
+    }
+
+    #[test]
+    fn a_dataset_with_an_iri_is_a_record_not_the_graphs_statement() {
+        // A graph about datasets holds dcat:Dataset records; only the blank
+        // node panschema writes speaks for the graph.
+        let g = graph(&dataset_node("ex:survey", Some("survey"), Some("1.0")));
+        assert_eq!(g.stated_graph().unwrap(), None);
+    }
+
+    #[test]
+    fn files_repeating_one_dataset_node_state_it_once() {
+        // Blank nodes are local to a file, so this is two nodes that agree.
+        let node = dataset_node("[]", Some("worked-example"), Some("0.2.1"));
+        assert_eq!(
+            two_files(&node, &node).stated_graph().unwrap(),
+            Some(stating("worked-example", "0.2.1"))
+        );
+    }
+
+    #[test]
+    fn files_naming_different_datasets_are_refused() {
+        // Moving either value is enough.
+        for (dataset, version) in [("a-fork", "0.2.1"), ("worked-example", "9.9.9")] {
+            let g = two_files(
+                &dataset_node("[]", Some("worked-example"), Some("0.2.1")),
+                &dataset_node("[]", Some(dataset), Some(version)),
+            );
+            match g.stated_graph() {
+                Err(Error::Graph(m)) => {
+                    for named in ["worked-example", "0.2.1", dataset, version] {
+                        assert!(m.contains(named), "{named} in {m}");
+                    }
+                }
+                other => panic!("{dataset} {version}: expected Graph, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_blank_dataset_another_node_points_at_is_a_record() {
+        // An inline catalog entry, with no name or version of its own,
+        // beside the graph's own statement: only the statement counts.
+        let record = "ex:alpha ex:holds [ a dcat:Dataset ] .";
+        let own = dataset_node("[]", Some("worked-example"), Some("0.2.1"));
+        assert_eq!(graph(record).stated_graph().unwrap(), None);
+        assert_eq!(
+            graph(&format!("{record} {own}")).stated_graph().unwrap(),
+            Some(stating("worked-example", "0.2.1"))
+        );
+    }
+
+    #[test]
+    fn a_dataset_node_with_two_versions_is_refused() {
+        let g = graph(
+            "[] a dcat:Dataset ; dcterms:identifier \"worked-example\" ;
+                dcat:version \"0.2.1\", \"1.0\" .",
+        );
+        match g.stated_graph() {
+            Err(Error::Graph(m)) => assert!(m.contains("0.2.1") && m.contains("1.0"), "{m}"),
+            other => panic!("expected Graph, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_dataset_node_missing_a_property_is_refused() {
+        // Read as no statement, it would let a flag name the graph.
+        for (identifier, version, lacking) in [
+            (None, Some("0.2.1"), "dcterms:identifier"),
+            (Some("worked-example"), None, "dcat:version"),
+        ] {
+            let g = graph(&dataset_node("[]", identifier, version));
+            match g.stated_graph() {
+                Err(Error::Graph(m)) => assert!(m.contains(lacking), "{lacking} in {m}"),
+                other => panic!("lacking {lacking}: expected Graph, got {other:?}"),
+            }
         }
     }
 

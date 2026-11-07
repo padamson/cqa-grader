@@ -48,6 +48,9 @@ pub enum Error {
     /// The benchmark file parsed as RDF but does not describe one benchmark.
     #[error("benchmark: {0}")]
     Benchmark(String),
+    /// The graph parsed as RDF but does not state one dataset it holds.
+    #[error("graph: {0}")]
+    Graph(String),
     /// The trace does not fit the benchmark it is graded against.
     #[error("trace: {0}")]
     Trace(String),

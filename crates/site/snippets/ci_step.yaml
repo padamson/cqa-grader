@@ -1,12 +1,11 @@
 # In a benchmark's own CI: the baseline shows every record an answer needs
 # can be found. It never says "none on record", so it leaves a closed-world
 # negative unanswered; --require no-wrong-answers tolerates that and still
-# fails a wrong answer or a question not attempted. --dataset and
-# --dataset-version name the graph as the benchmark's target does; they
-# move with each release, or grading exits 2.
+# fails a wrong answer or a question not attempted. The graph states which
+# dataset it holds and at what version, and grading exits 2 unless that is
+# the benchmark's target.
 - name: Grade the baseline against the benchmark
   run: |
     cqa-grader grade --benchmark site/artifacts/wine-benchmark.ttl \
       --baseline --graph site/artifacts/wine.ttl \
-      --dataset worked-example --dataset-version 0.2.1 \
       --require no-wrong-answers --report report.json

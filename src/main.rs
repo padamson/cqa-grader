@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use cqa_grader::{Baseline, Benchmark, Graph, Report, Require, Trace, grade};
 
@@ -60,17 +60,19 @@ enum Command {
 struct Retrieval {
     /// The target graph's published Turtle artifact (schema plus
     /// instances). Repeat for a graph published as several files; they
-    /// load into one store.
-    #[arg(long, requires_all = ["dataset", "dataset_version"])]
+    /// load into one store. The dataset and version the files state they
+    /// hold are recorded in the trace, which grading refuses unless they
+    /// are the benchmark's target.
+    #[arg(long)]
     graph: Vec<PathBuf>,
     /// The dataset those files hold, as the benchmark's `target_dataset`
-    /// would name it. Recorded in the trace, which grading refuses unless
-    /// it is the benchmark's target.
-    #[arg(long, required = false, requires = "graph")]
-    dataset: String,
-    /// The version of that dataset.
-    #[arg(long, required = false, requires = "graph")]
-    dataset_version: String,
+    /// would name it, for a graph that does not state it. One that
+    /// contradicts what the graph states is refused.
+    #[arg(long, requires_all = ["graph", "dataset_version"])]
+    dataset: Option<String>,
+    /// The version of that dataset, given with `--dataset`.
+    #[arg(long, requires_all = ["graph", "dataset"])]
+    dataset_version: Option<String>,
     /// Rounds of one-hop expansion from each entry point.
     #[arg(long, default_value_t = 1)]
     hops: usize,
@@ -125,15 +127,15 @@ fn run() -> Result<ExitCode> {
                     grade(&b, &t, judge.require)?
                 }
                 None => {
-                    let t = retrieval.context("--baseline needs --graph")?.trace(&b)?;
+                    let (t, named_by) = retrieval.context("--baseline needs --graph")?.trace(&b)?;
                     // Before grading, so the trace survives a grade that
                     // cannot run.
                     if let Some(path) = save_trace {
                         write_trace(&t, &path)?;
                     }
-                    grade(&b, &t, judge.require).context(
-                        "the baseline's trace names its graph by --dataset and --dataset-version",
-                    )?
+                    grade(&b, &t, judge.require).with_context(|| {
+                        format!("the baseline's trace names its graph by {named_by}")
+                    })?
                 }
             };
             judge.report(&r)
@@ -144,7 +146,7 @@ fn run() -> Result<ExitCode> {
             output,
         } => {
             let b = read_benchmark(&benchmark)?;
-            let trace = retrieval.trace(&b)?;
+            let (trace, _) = retrieval.trace(&b)?;
             match output {
                 Some(path) => write_trace(&trace, &path)?,
                 None => println!("{}", trace.to_json()?),
@@ -159,14 +161,42 @@ fn run() -> Result<ExitCode> {
 }
 
 impl Retrieval {
-    /// Run the baseline over the graph and return its trace for `b`.
-    fn trace(self, b: &Benchmark) -> Result<Trace> {
+    /// Run the baseline over the graph and return its trace for `b`, with
+    /// what named the graph it records (see [`over`]).
+    fn trace(self, b: &Benchmark) -> Result<(Trace, &'static str)> {
         let retriever = Baseline::from_paths(&self.graph).context("reading the graph")?;
-        let over = Graph {
-            dataset: self.dataset,
-            dataset_version: self.dataset_version,
-        };
-        Ok(retriever.run(b, over, self.hops)?)
+        let stated = retriever
+            .stated_graph()
+            .context("reading which dataset the graph holds")?;
+        let given = self
+            .dataset
+            .zip(self.dataset_version)
+            .map(|(dataset, dataset_version)| Graph {
+                dataset,
+                dataset_version,
+            });
+        let (graph, named_by) = over(stated, given)?;
+        Ok((retriever.run(b, graph, self.hops)?, named_by))
+    }
+}
+
+/// The graph the baseline runs over, and what named it: what its files
+/// state, or what the flags give where the files state nothing. The flags
+/// never override the files, since that would relabel a graph past
+/// grading's check that it is the benchmark's target. They agree when
+/// grading would take them as the same graph, a pre-release as its
+/// release.
+fn over(stated: Option<Graph>, given: Option<Graph>) -> Result<(Graph, &'static str)> {
+    match (stated, given) {
+        (Some(stated), Some(given)) if !stated.matches(&given) => bail!(
+            "the graph states it holds {stated}, and --dataset and --dataset-version say {given}"
+        ),
+        (Some(graph), _) => Ok((graph, "the graph's dcat:Dataset node")),
+        (None, Some(graph)) => Ok((graph, "--dataset and --dataset-version")),
+        (None, None) => bail!(
+            "the graph does not state which dataset it holds; name it with \
+             --dataset and --dataset-version"
+        ),
     }
 }
 
@@ -197,4 +227,52 @@ fn write_trace(trace: &Trace, path: &Path) -> Result<()> {
     trace
         .write(path)
         .with_context(|| format!("writing trace {}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn named(dataset: &str, version: &str) -> Option<Graph> {
+        Some(Graph {
+            dataset: dataset.into(),
+            dataset_version: version.into(),
+        })
+    }
+
+    #[test]
+    fn the_graphs_statement_names_it_whatever_agreeing_flags_say() {
+        let stated = named("worked-example", "0.2.1-dev");
+        for given in [
+            None,
+            named("worked-example", "0.2.1-dev"),
+            named("worked-example", "0.2.1"),
+        ] {
+            let (graph, by) = over(stated.clone(), given.clone()).unwrap();
+            assert_eq!(Some(graph), stated, "{given:?}");
+            assert!(by.contains("dcat:Dataset"), "{given:?}: {by}");
+        }
+    }
+
+    #[test]
+    fn the_flags_name_a_graph_that_states_nothing() {
+        let given = named("a-fork", "9.9.9");
+        let (graph, by) = over(None, given.clone()).unwrap();
+        assert_eq!(Some(graph), given);
+        assert!(by.contains("--dataset"), "{by}");
+    }
+
+    #[test]
+    fn flags_that_contradict_the_graph_are_refused() {
+        let stated = named("worked-example", "0.2.1");
+        for given in [named("a-fork", "0.2.1"), named("worked-example", "0.2.2")] {
+            assert!(over(stated.clone(), given.clone()).is_err(), "{given:?}");
+        }
+    }
+
+    #[test]
+    fn a_graph_named_by_nothing_is_refused() {
+        let err = over(None, None).unwrap_err().to_string();
+        assert!(err.contains("--dataset-version"), "{err}");
+    }
 }

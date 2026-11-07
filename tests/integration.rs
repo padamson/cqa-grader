@@ -14,6 +14,17 @@ fn wine() -> (Benchmark, Baseline) {
 }
 
 #[test]
+fn wines_graph_states_its_benchmarks_target() {
+    // The CLI tests that run the baseline over wine.ttl with no flags rely
+    // on this, so a fixture regen that moves one off the other fails here.
+    let (benchmark, baseline) = wine();
+    assert_eq!(
+        baseline.stated_graph().unwrap(),
+        Some(benchmark.target_graph())
+    );
+}
+
+#[test]
 fn the_baseline_leaves_only_closed_world_negatives_unanswered() {
     // It reaches every anchor and never asserts absence, so a negative
     // fails its own check and nothing else does, which is an abstention.

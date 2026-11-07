@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use assert_cmd::Command;
 use cqa_grader::{AnswerKind, Attempt, Benchmark, Graph, System, Trace};
 use oxigraph::io::RdfFormat;
-use oxigraph::model::{NamedNodeRef, Triple, vocab::rdf};
+use oxigraph::model::{Triple, vocab::rdf};
 use oxigraph::store::Store;
 use predicates::prelude::*;
 
@@ -29,7 +29,7 @@ fn wine_benchmark() -> &'static Benchmark {
 }
 
 /// `--dataset` and `--dataset-version` naming wine's graph as its
-/// benchmark targets it.
+/// benchmark targets it, and as the graph's own dataset node states it.
 fn wine_graph_args() -> [String; 4] {
     let target = wine_benchmark().target_graph();
     [
@@ -141,10 +141,11 @@ fn a_baseline_named_off_target_points_at_the_flags_and_keeps_its_trace() {
     // Grading refuses the trace (exit 2); with --baseline the user typed
     // no trace, so the error names the flags that named its graph, and the
     // saved trace is there to look at.
-    let saved = tempdir().join("saved.json");
-    let out = cli()
-        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+    let dir = tempdir();
+    let unstated = wine_stating(&dir, None);
+    let saved = dir.join("saved.json");
+    let out = over_wine("grade", &[&unstated])
+        .arg("--baseline")
         .args(["--dataset", &wine_benchmark().target_graph().dataset])
         .args(["--dataset-version", "9.9.9"])
         .args(["--save-trace", saved.to_str().unwrap()])
@@ -154,6 +155,133 @@ fn a_baseline_named_off_target_points_at_the_flags_and_keeps_its_trace() {
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     assert!(stderr.contains("--dataset-version"), "{stderr}");
     assert!(saved.exists(), "{stderr}");
+}
+
+#[test]
+fn a_graph_stating_another_version_is_refused_and_keeps_its_trace() {
+    // As above, but the graph named itself, so the error points at its
+    // dataset node, even where flags that agree with it were typed too.
+    let dir = tempdir();
+    let target = wine_benchmark().target_graph();
+    let elsewhere = wine_stating(&dir, Some((&target.dataset, "9.9.9")));
+    let agreeing = ["--dataset", &target.dataset, "--dataset-version", "9.9.9"];
+    for (case, flags) in [("no flags", &[][..]), ("agreeing flags", &agreeing)] {
+        let saved = dir.join(format!("{case}.json"));
+        let out = over_wine("grade", &[&elsewhere])
+            .arg("--baseline")
+            .args(flags)
+            .args(["--save-trace", saved.to_str().unwrap()])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{case}: {stderr}");
+        assert!(stderr.contains("dcat:Dataset"), "{case}: {stderr}");
+        assert!(!stderr.contains("--dataset"), "{case}: {stderr}");
+        assert!(saved.exists(), "{case}: {stderr}");
+    }
+}
+
+#[test]
+fn a_flag_that_contradicts_the_graph_is_refused() {
+    // The flags are a fallback, never an override: one that won would
+    // relabel the graph past grading's check that it is the target.
+    let dir = tempdir();
+    let stated = wine_stating(&dir, Some(("held-here", "1.0.0")));
+    for subcommand in ["baseline", "grade"] {
+        for (dataset, version) in [("named-elsewhere", "1.0.0"), ("held-here", "2.0.0")] {
+            let mut cmd = over_wine(subcommand, &[&stated]);
+            if subcommand == "grade" {
+                cmd.arg("--baseline");
+            }
+            let out = cmd
+                .args(["--dataset", dataset, "--dataset-version", version])
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let case = format!("{subcommand} {dataset} {version}");
+            assert_eq!(out.status.code(), Some(2), "{case}: {stderr}");
+            for named in ["held-here", "1.0.0", dataset, version] {
+                assert!(stderr.contains(named), "{named} in {case}: {stderr}");
+            }
+        }
+    }
+}
+
+#[test]
+fn flags_that_agree_with_the_graph_change_nothing() {
+    let dir = tempdir();
+    let wine = common::fixture_path("wine.ttl");
+    let without = baseline_trace(&dir, &[&wine]);
+    let with = traced(
+        over_wine("baseline", &[&wine]).args(wine_graph_args()),
+        dir.join("with-flags.json"),
+    );
+    assert_eq!(
+        Trace::from_path(&with).unwrap(),
+        Trace::from_path(&without).unwrap()
+    );
+}
+
+#[test]
+fn a_flag_pinned_to_the_release_agrees_with_a_pre_release_graph() {
+    // Grading takes 0.2.1-dev as 0.2.1, so the flags do too; the trace
+    // records what the graph states.
+    let dir = tempdir();
+    let dev = wine_stating(&dir, Some(("worked-example", "0.2.1-dev")));
+    let trace = traced(
+        over_wine("baseline", &[&dev]).args([
+            "--dataset",
+            "worked-example",
+            "--dataset-version",
+            "0.2.1",
+        ]),
+        dir.join("trace.json"),
+    );
+    assert_eq!(
+        Trace::from_path(&trace).unwrap().graph.dataset_version,
+        "0.2.1-dev"
+    );
+}
+
+#[test]
+fn a_graph_that_states_no_dataset_needs_the_flags() {
+    let dir = tempdir();
+    let unstated = wine_stating(&dir, None);
+    let out = over_wine("baseline", &[&unstated]).output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(stderr.contains("--dataset-version"), "{stderr}");
+    // Refused by the baseline, not by clap, which also exits 2.
+    assert!(!stderr.contains("Usage:"), "{stderr}");
+}
+
+#[test]
+fn graphs_naming_different_datasets_are_refused() {
+    let dir = tempdir();
+    let here = wine_stating(&dir.join("here"), Some(("held-here", "1.0.0")));
+    let there = wine_stating(&dir.join("there"), Some(("held-there", "1.0.0")));
+    let out = over_wine("baseline", &[&here, &there]).output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    for named in ["held-here", "held-there"] {
+        assert!(stderr.contains(named), "{named}: {stderr}");
+    }
+}
+
+#[test]
+fn a_dataset_flag_alone_is_a_usage_error() {
+    // Half a name would otherwise be dropped without a word, and the
+    // graph's own statement used in its place.
+    for (given, missing) in [
+        ("--dataset", "--dataset-version <"),
+        ("--dataset-version", "--dataset <"),
+    ] {
+        over_wine("baseline", &[&common::fixture_path("wine.ttl")])
+            .args([given, "9.9.9"])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains(missing));
+    }
 }
 
 #[test]
@@ -190,28 +318,31 @@ fn a_wrong_answer_fails_the_no_wrong_answers_requirement() {
     }
 }
 
-/// Run the baseline over `graphs`, named as wine's benchmark targets its
-/// graph, and return the trace's path.
+/// Run the baseline over `graphs`, which name themselves, and return the
+/// trace's path.
 fn baseline_trace(dir: &Path, graphs: &[&Path]) -> PathBuf {
-    let trace = dir.join("trace.json");
-    over_wine("baseline", graphs)
-        .args(["--output", trace.to_str().unwrap()])
+    traced(&mut over_wine("baseline", graphs), dir.join("trace.json"))
+}
+
+/// Run `cmd`, a `baseline` command, writing its trace to `trace`, and
+/// return the path.
+fn traced(cmd: &mut Command, trace: PathBuf) -> PathBuf {
+    cmd.args(["--output", trace.to_str().unwrap()])
         .assert()
         .success();
     assert!(trace.exists());
     trace
 }
 
-/// `subcommand` (`baseline`, or `grade` with `--baseline`) over `graphs`,
-/// named as wine's benchmark targets its graph.
+/// `subcommand` (`baseline`, or `grade` with `--baseline`) over `graphs`
+/// against wine's benchmark, with no flags naming the graph.
 fn over_wine(subcommand: &str, graphs: &[&Path]) -> Command {
     let mut cmd = cli();
     cmd.arg(subcommand);
     for graph in graphs {
         cmd.arg("--graph").arg(graph);
     }
-    cmd.args(wine_graph_args())
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")]);
+    cmd.args(["--benchmark", &fixture("wine-benchmark.ttl")]);
     cmd
 }
 
@@ -340,22 +471,25 @@ fn the_documented_trace_is_read_as_written() {
 #[test]
 fn the_baseline_records_the_graph_it_ran_over() {
     // Named apart from the benchmark's target, so a baseline that copied
-    // the benchmark's pins into its trace would fail.
+    // the benchmark's pins into its trace would fail: once by the graph's
+    // own dataset node, once by the flags over a graph that has none.
     let dir = tempdir();
-    let trace = dir.join("trace.json");
-    cli()
-        .args(["baseline", "--graph", &fixture("wine.ttl")])
-        .args(["--dataset", "a-fork", "--dataset-version", "9.9.9"])
-        .args(["--benchmark", &fixture("wine-benchmark.ttl")])
-        .args(["--output", trace.to_str().unwrap()])
-        .assert()
-        .success();
-    let json: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(trace).unwrap()).unwrap();
-    assert_eq!(
-        json["graph"],
-        serde_json::json!({"dataset": "a-fork", "dataset_version": "9.9.9"})
-    );
+    let stated = wine_stating(&dir.join("stated"), Some(("a-fork", "9.9.9")));
+    let unstated = wine_stating(&dir.join("unstated"), None);
+    let flags = ["--dataset", "a-fork", "--dataset-version", "9.9.9"];
+    for (case, graph, args) in [("stated", stated, &[][..]), ("given", unstated, &flags)] {
+        let trace = traced(
+            over_wine("baseline", &[&graph]).args(args),
+            dir.join(format!("{case}.json")),
+        );
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(trace).unwrap()).unwrap();
+        assert_eq!(
+            json["graph"],
+            serde_json::json!({"dataset": "a-fork", "dataset_version": "9.9.9"}),
+            "{case}"
+        );
+    }
 }
 
 /// Write a trace for `benchmark` over `graph` with no attempts, and
@@ -398,48 +532,94 @@ fn a_graph_that_fails_to_load_is_named() {
 }
 
 /// Run the baseline over `graphs`, grade its trace against wine's
-/// benchmark, and return how many questions passed.
+/// benchmark, and return how many questions passed. The flags name the
+/// graph, since a half of a split graph may carry no dataset node.
 fn passed_over(dir: &Path, graphs: &[&Path]) -> u64 {
-    let trace = baseline_trace(dir, graphs);
+    let trace = traced(
+        over_wine("baseline", graphs).args(wine_graph_args()),
+        dir.join("trace.json"),
+    );
     let (_, json) = grade_json(&trace, &[]);
     json["summary"]["passed"].as_u64().unwrap()
 }
 
-/// wine's graph as two N-Triples files (which are Turtle): every other
-/// named individual's triples in the second, everything else in the first.
+/// wine's graph as N-Triples (which are Turtle) in `dir`, its dataset node
+/// replaced by one stating `stated` (a dataset and a version), or by none.
+fn wine_stating(dir: &Path, stated: Option<(&str, &str)>) -> PathBuf {
+    const DATASET: &str = "http://www.w3.org/ns/dcat#Dataset";
+    let triples = wine_triples();
+    let nodes: BTreeSet<String> = typed(&triples, DATASET)
+        .filter(|t| t.subject.is_blank_node())
+        .map(|t| t.subject.to_string())
+        .collect();
+    assert!(
+        !nodes.is_empty(),
+        "wine.ttl carries no dataset node to replace"
+    );
+    let mut text = ntriples(
+        triples
+            .iter()
+            .filter(|t| !nodes.contains(&t.subject.to_string())),
+    );
+    if let Some((identifier, version)) = stated {
+        writeln!(
+            text,
+            "_:stated a <{DATASET}> ; <http://purl.org/dc/terms/identifier> {identifier:?} ; \
+             <http://www.w3.org/ns/dcat#version> {version:?} ."
+        )
+        .unwrap();
+    }
+    std::fs::create_dir_all(dir).unwrap();
+    let path = dir.join("wine.ttl");
+    std::fs::write(&path, text).unwrap();
+    path
+}
+
+/// wine's graph as two N-Triples files: every other named individual's
+/// triples in the second, everything else in the first.
 fn split_wine(dir: &Path) -> (PathBuf, PathBuf) {
+    let triples = wine_triples();
+    let individuals: BTreeSet<String> =
+        typed(&triples, "http://www.w3.org/2002/07/owl#NamedIndividual")
+            .map(|t| t.subject.to_string())
+            .collect();
+    let moved: BTreeSet<String> = individuals.into_iter().skip(1).step_by(2).collect();
+    // Blank-node labels are local to a file, so a triple split from the
+    // blank node it points at would point at a different one. Triples
+    // split by subject, so a blank subject's triples (the graph's dataset
+    // node) always land in one file.
+    if let Some(t) = triples.iter().find(|t| t.object.is_blank_node()) {
+        panic!("split_wine cannot split a graph that points at a blank node: {t}");
+    }
+    let (second, first): (Vec<&Triple>, Vec<&Triple>) = triples
+        .iter()
+        .partition(|t| moved.contains(&t.subject.to_string()));
+    let paths = (dir.join("first.ttl"), dir.join("second.ttl"));
+    std::fs::write(&paths.0, ntriples(first)).unwrap();
+    std::fs::write(&paths.1, ntriples(second)).unwrap();
+    paths
+}
+
+/// Every triple in wine's graph.
+fn wine_triples() -> Vec<Triple> {
     let store = Store::new().unwrap();
     store
         .load_from_slice(RdfFormat::Turtle, &common::fixture_text("wine.ttl"))
         .unwrap();
-    let individual = NamedNodeRef::new("http://www.w3.org/2002/07/owl#NamedIndividual").unwrap();
-    let individuals: BTreeSet<String> = store
-        .quads_for_pattern(None, Some(rdf::TYPE), Some(individual.into()), None)
-        .map(|q| q.unwrap().subject.to_string())
-        .collect();
-    let moved: BTreeSet<String> = individuals.into_iter().skip(1).step_by(2).collect();
-    let (mut first, mut second) = (String::new(), String::new());
-    for quad in store.iter() {
-        let triple = Triple::from(quad.unwrap());
-        // Blank-node labels are local to a file, so a triple split from
-        // the blank node it points at would point at a different one.
-        // Triples split by subject, so a blank subject's triples (the
-        // graph's dataset node) always land in one file.
-        assert!(
-            !triple.object.is_blank_node(),
-            "split_wine cannot split a graph that points at a blank node: {triple}"
-        );
-        let half = if moved.contains(&triple.subject.to_string()) {
-            &mut second
-        } else {
-            &mut first
-        };
-        writeln!(half, "{triple} .").unwrap();
-    }
-    let paths = (dir.join("first.ttl"), dir.join("second.ttl"));
-    std::fs::write(&paths.0, first).unwrap();
-    std::fs::write(&paths.1, second).unwrap();
-    paths
+    store.iter().map(|q| Triple::from(q.unwrap())).collect()
+}
+
+/// The triples typing a subject as `class`.
+fn typed<'a>(triples: &'a [Triple], class: &str) -> impl Iterator<Item = &'a Triple> {
+    let class = format!("<{class}>");
+    triples
+        .iter()
+        .filter(move |t| t.predicate == rdf::TYPE && t.object.to_string() == class)
+}
+
+/// `triples` as N-Triples text.
+fn ntriples<'a>(triples: impl IntoIterator<Item = &'a Triple>) -> String {
+    triples.into_iter().map(|t| format!("{t} .\n")).collect()
 }
 
 #[test]

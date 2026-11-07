@@ -108,6 +108,31 @@
       ]
     },
     {
+      "id": "roadmap-now-graph-identity",
+      "title": "The baseline reads the graph's name from the graph",
+      "blurb": "A published graph states which dataset it holds and at what version, so the baseline reads them from the graph instead of taking --dataset and --dataset-version. The flags name a graph that states nothing, and are refused when they contradict one that does.",
+      "horizon": "now",
+      "status": "done",
+      "acceptance": [
+        {
+          "criterion": "The baseline records the dataset and version the graph states, and those the flags give for a graph that states none, never the benchmark's",
+          "test": "tests/cli.rs::the_baseline_records_the_graph_it_ran_over"
+        },
+        {
+          "criterion": "A flag that contradicts the graph's own statement is refused with exit code 2, naming both",
+          "test": "tests/cli.rs::a_flag_that_contradicts_the_graph_is_refused"
+        },
+        {
+          "criterion": "A graph that states no dataset, with no flags, is refused with exit code 2, naming the flags",
+          "test": "tests/cli.rs::a_graph_that_states_no_dataset_needs_the_flags"
+        },
+        {
+          "criterion": "Files that name more than one dataset are refused",
+          "test": "src/baseline.rs::files_naming_different_datasets_are_refused"
+        }
+      ]
+    },
+    {
       "id": "roadmap-now-budget",
       "title": "A retrieval budget",
       "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. Waits on cqa v0.2 deciding whether the cap is the benchmark's to state.",
@@ -182,12 +207,6 @@
           "test": "tests/cli.rs::the_baseline_reads_the_schema_from_the_graph"
         }
       ]
-    },
-    {
-      "id": "roadmap-later-graph-identity",
-      "title": "The baseline reads the graph's name from the graph",
-      "blurb": "A published graph states which dataset it holds and at what version, so the baseline reads them instead of taking --dataset and --dataset-version, which stay as overrides. Waits on panschema stating them.",
-      "horizon": "later"
     },
     {
       "id": "roadmap-later-traversal",

@@ -77,17 +77,24 @@ Run the naive baseline retriever over a graph, so a benchmark's CI has a
 student to grade:
 
 ```bash
-cqa-grader baseline --graph wine.ttl --dataset worked-example --dataset-version 0.2.1 \
-  --benchmark wine-benchmark.ttl --output trace.json
+cqa-grader baseline --graph wine.ttl --benchmark wine-benchmark.ttl --output trace.json
 ```
 
 A graph published as several files (one Turtle file per dataset, say) takes
 one `--graph` per file. They load into one store, so there is no need to
-concatenate them first. `--dataset` and `--dataset-version` name what those
-files hold, the way the benchmark's target names it, and the trace records
-them as given. A published graph does not name its dataset, so the baseline
-takes them on trust; grading checks them against the benchmark. In a CI
-step they move with each release.
+concatenate them first. The trace records which dataset those files hold,
+and at what version, as the files state it: panschema writes a blank
+`dcat:Dataset` node into each graph it publishes, with the dataset's name
+(`dcterms:identifier`) and version (`dcat:version`). Grading checks the two
+against the benchmark's target. Files that name more than one dataset are
+refused.
+
+For a graph with no such node (one from panschema's 0.4.0 release, or from
+another producer), `--dataset` and `--dataset-version` name what the files
+hold, and the trace records them as given. They are a fallback, not an
+override: given beside a node that says something else, they are refused
+(exit code 2), since otherwise a flag could relabel a graph past grading's
+check.
 
 A benchmark's CI needs the grade, not the trace, so `grade --baseline`
 grades the baseline in one run: in place of `--trace` it takes the
@@ -96,8 +103,7 @@ also writes the trace, which says what the baseline retrieved for a
 question that failed.
 
 ```bash
-cqa-grader grade --benchmark wine-benchmark.ttl --baseline \
-  --graph wine.ttl --dataset worked-example --dataset-version 0.2.1 \
+cqa-grader grade --benchmark wine-benchmark.ttl --baseline --graph wine.ttl \
   --require no-wrong-answers
 ```
 
