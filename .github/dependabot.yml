@@ -1,13 +1,37 @@
 version: 2
 updates:
   - package-ecosystem: "cargo"
-    directory: "/"
+    # `directory: "/"` reads only the root Cargo.lock. The site crate has
+    # its own `[workspace]` and commits its own lock, so it is listed too;
+    # `git ls-files '*Cargo.lock'` prints the list. One entry keeps the
+    # schedule, cooldown, and groups on both and opens one PR per group
+    # across the whole list.
+    directories:
+      - "/"
+      - "/crates/site"
     schedule:
       interval: "weekly"
       day: "saturday"
       time: "04:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 10
+    # Wait before proposing a bump. cargo-vet's import sets (Mozilla, Google,
+    # ISRG, ...) have not audited a version that is hours old, so day-zero
+    # bumps fail Supply Chain Review by construction and the only response
+    # is an exemption nobody audited. A week of lag lets the upstream audits
+    # land first, skips releases that get yanked, and lets advisories
+    # surface before adoption. Longer for majors, the riskiest and least
+    # urgent.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    # Grouping keeps the weekly run to as few PRs as possible. Every cargo PR
+    # edits Cargo.lock, so two open cargo PRs conflict the moment one merges
+    # and the second must rebase and re-run CI; with N PRs the auto-merge
+    # cascade costs O(N^2) runs. No merge machinery avoids a lockfile
+    # conflict; fewer PRs is the fix.
     groups:
       minor-and-patch:
         patterns:
@@ -15,6 +39,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      major-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -24,3 +53,20 @@ updates:
       time: "04:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 10
+    # Only default-days here: Dependabot's schema rejects the per-semver keys
+    # for github-actions, and one bad key invalidates this whole file.
+    cooldown:
+      default-days: 7
+    # One PR for the week's action bumps, same cascade rationale as cargo,
+    # except create-github-app-token, the one action dependabot-auto-merge.yml
+    # runs. Its bump gets a PR of its own, which that workflow holds for a
+    # hand merge from its first push. Inside the group it would hold every
+    # other bump with it, or join a group PR already set to auto-merge after
+    # an earlier push that bumped only other actions: the hold check is not
+    # required, so that PR would merge unreviewed.
+    groups:
+      actions:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "actions/create-github-app-token"
