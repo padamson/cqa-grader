@@ -112,7 +112,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install asbuilt and check the architecture model
-        uses: padamson/asbuilt@83d374bc3d98f5d1cb893944777c3a10e66fd6d2 # v0.3.0
+        uses: padamson/asbuilt@e6e78558a1478c5243538e0b1adacd3815bd5c2d # v0.3.1
 
   test:
     name: Test on ${{ matrix.os }}
