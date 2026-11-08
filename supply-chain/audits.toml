@@ -51,6 +51,12 @@ user-id = 6743 # Ed Page (epage)
 start = "2019-03-23"
 end = "2027-09-03"
 
+[[trusted.autocfg]]
+criteria = "safe-to-deploy"
+user-id = 539 # Josh Stone (cuviper)
+start = "2019-05-22"
+end = "2027-11-08"
+
 [[trusted.bstr]]
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)
@@ -87,11 +93,23 @@ user-id = 6743 # Ed Page (epage)
 start = "2023-04-13"
 end = "2027-09-03"
 
+[[trusted.crossbeam-utils]]
+criteria = "safe-to-deploy"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2020-10-12"
+end = "2027-11-08"
+
 [[trusted.dyn-clone]]
 criteria = "safe-to-deploy"
 user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-12-23"
 end = "2027-10-17"
+
+[[trusted.hashbrown]]
+criteria = "safe-to-deploy"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-04-02"
+end = "2027-11-08"
 
 [[trusted.is_terminal_polyfill]]
 criteria = "safe-to-deploy"
@@ -105,6 +123,30 @@ user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-05-02"
 end = "2027-10-17"
 
+[[trusted.json-event-parser]]
+criteria = "safe-to-deploy"
+user-id = 55660 # Thomas Tanon (Tpt)
+start = "2021-05-30"
+end = "2027-11-08"
+
+[[trusted.libc]]
+criteria = "safe-to-deploy"
+user-id = 55123 # rust-lang-owner
+start = "2024-08-15"
+end = "2027-11-08"
+
+[[trusted.lock_api]]
+criteria = "safe-to-deploy"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-05-04"
+end = "2027-11-08"
+
+[[trusted.md-5]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:RustCrypto/hashes"
+start = "2026-03-27"
+end = "2027-11-08"
+
 [[trusted.memchr]]
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)
@@ -116,6 +158,72 @@ criteria = "safe-to-deploy"
 user-id = 6743 # Ed Page (epage)
 start = "2025-05-22"
 end = "2027-09-03"
+
+[[trusted.oxigraph]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.oxilangtag]]
+criteria = "safe-to-deploy"
+user-id = 55660 # Thomas Tanon (Tpt)
+start = "2020-05-01"
+end = "2027-11-08"
+
+[[trusted.oxilangtag]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxilangtag"
+start = "2026-05-23"
+end = "2027-11-08"
+
+[[trusted.oxiri]]
+criteria = "safe-to-deploy"
+user-id = 55660 # Thomas Tanon (Tpt)
+start = "2020-05-01"
+end = "2027-11-08"
+
+[[trusted.oxjsonld]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.oxrdf]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.oxrdfio]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.oxrdfxml]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.oxsdatatypes]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2026-08-30"
+end = "2027-11-08"
+
+[[trusted.oxttl]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.parking_lot_core]]
+criteria = "safe-to-deploy"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-05-04"
+end = "2027-11-08"
 
 [[trusted.proc-macro2]]
 criteria = "safe-to-deploy"
@@ -153,6 +261,12 @@ user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-03-30"
 end = "2027-09-03"
 
+[[trusted.scopeguard]]
+criteria = "safe-to-deploy"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2020-02-16"
+end = "2027-11-08"
+
 [[trusted.serde]]
 criteria = "safe-to-deploy"
 user-id = 3618 # David Tolnay (dtolnay)
@@ -183,6 +297,42 @@ user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-02-28"
 end = "2027-10-17"
 
+[[trusted.sha1]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:RustCrypto/hashes"
+start = "2026-03-27"
+end = "2027-11-08"
+
+[[trusted.sha2]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:RustCrypto/hashes"
+start = "2026-03-25"
+end = "2027-11-08"
+
+[[trusted.sparesults]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.spareval]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.spargebra]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
+[[trusted.sparopt]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:oxigraph/oxigraph"
+start = "2025-07-20"
+end = "2027-11-08"
+
 [[trusted.syn]]
 criteria = "safe-to-deploy"
 user-id = 3618 # David Tolnay (dtolnay)
@@ -206,6 +356,12 @@ criteria = "safe-to-deploy"
 user-id = 3618 # David Tolnay (dtolnay)
 start = "2021-10-02"
 end = "2027-10-17"
+
+[[trusted.windows-sys]]
+criteria = "safe-to-deploy"
+user-id = 64539 # Kenny Kerr (kennykerr)
+start = "2021-11-15"
+end = "2027-11-08"
 
 [[trusted.zmij]]
 criteria = "safe-to-deploy"

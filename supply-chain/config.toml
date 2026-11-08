@@ -25,10 +25,6 @@ url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
-[[exemptions.autocfg]]
-version = "1.5.1"
-criteria = "safe-to-run"
-
 [[exemptions.bitflags]]
 version = "2.13.1"
 criteria = "safe-to-deploy"
@@ -39,10 +35,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.const-oid]]
 version = "0.10.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.crossbeam-utils]]
-version = "0.8.22"
 criteria = "safe-to-deploy"
 
 [[exemptions.crypto-common]]
@@ -65,72 +57,12 @@ criteria = "safe-to-run"
 version = "0.3.4"
 criteria = "safe-to-deploy"
 
-[[exemptions.hashbrown]]
-version = "0.14.5"
-criteria = "safe-to-deploy"
-
 [[exemptions.hybrid-array]]
 version = "0.4.14"
 criteria = "safe-to-deploy"
 
-[[exemptions.json-event-parser]]
-version = "0.2.3"
-criteria = "safe-to-deploy"
-
-[[exemptions.libc]]
-version = "0.2.189"
-criteria = "safe-to-deploy"
-
-[[exemptions.lock_api]]
-version = "0.4.14"
-criteria = "safe-to-deploy"
-
-[[exemptions.md-5]]
-version = "0.11.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.once_cell]]
 version = "1.21.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxigraph]]
-version = "0.5.12"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxilangtag]]
-version = "0.1.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxiri]]
-version = "0.2.11"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxjsonld]]
-version = "0.2.7"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxrdf]]
-version = "0.3.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxrdfio]]
-version = "0.2.7"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxrdfxml]]
-version = "0.2.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxsdatatypes]]
-version = "0.2.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.oxttl]]
-version = "0.2.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.parking_lot_core]]
-version = "0.9.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.peg]]
@@ -181,18 +113,6 @@ criteria = "safe-to-deploy"
 version = "1.2.3"
 criteria = "safe-to-deploy"
 
-[[exemptions.scopeguard]]
-version = "1.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.sha1]]
-version = "0.11.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.sha2]]
-version = "0.11.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.siphasher]]
 version = "1.0.3"
 criteria = "safe-to-deploy"
@@ -201,28 +121,8 @@ criteria = "safe-to-deploy"
 version = "1.16.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.sparesults]]
-version = "0.3.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.spareval]]
-version = "0.2.8"
-criteria = "safe-to-deploy"
-
-[[exemptions.spargebra]]
-version = "0.4.8"
-criteria = "safe-to-deploy"
-
-[[exemptions.sparopt]]
-version = "0.3.8"
-criteria = "safe-to-deploy"
-
 [[exemptions.typenum]]
 version = "1.20.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows-sys]]
-version = "0.61.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.zerocopy]]
