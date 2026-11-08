@@ -61,6 +61,10 @@ criteria = "safe-to-deploy"
 version = "0.4.14"
 criteria = "safe-to-deploy"
 
+[[exemptions.mutants]]
+version = "0.0.4"
+criteria = "safe-to-deploy"
+
 [[exemptions.once_cell]]
 version = "1.21.4"
 criteria = "safe-to-deploy"
@@ -113,6 +117,10 @@ criteria = "safe-to-deploy"
 version = "1.2.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.serde_norway]]
+version = "0.9.42"
+criteria = "safe-to-deploy"
+
 [[exemptions.siphasher]]
 version = "1.0.3"
 criteria = "safe-to-deploy"
@@ -123,6 +131,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.typenum]]
 version = "1.20.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.unsafe-libyaml-norway]]
+version = "0.2.15"
 criteria = "safe-to-deploy"
 
 [[exemptions.zerocopy]]

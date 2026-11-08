@@ -1,0 +1,132 @@
+# The worked example: wine's competency questions as a cqa benchmark.
+#
+# Every anchor names a record in wine's published worked-example graph.
+# No wine record is copied here — this file states what a correct answer
+# must reach, and the graph it reaches into lives in another repository
+# at the version named below. Anchors are written short: the target
+# schema's namespace is declared once, and each bare id expands against
+# it.
+#
+# CQ-wine 1 is absent on purpose. It asks which characteristics to consider
+# when choosing a wine, which wine's schema answers before any instance
+# exists, so there is no record to anchor.
+id: wine-benchmark
+name: Wine competency questions
+description: >-
+  The seven competency questions of the wine ontology, less the one its
+  schema answers, each paired with the specification of its correct answer
+  over wine's worked-example graph.
+
+# CALLOUT: target The claims below are about one graph at one version — and the schema URI, stated once, is the base every short anchor in this file expands against. Without the pins, a correct edit to the catalog could silently falsify a ground truth.
+target_schema: https://w3id.org/wine-linkml/
+target_schema_version: 0.2.1
+target_dataset: worked-example
+target_dataset_version: 0.2.1
+
+competency_question_answers:
+  - id: cq-02
+    name: Bordeaux colour
+    question: Is Bordeaux a red or white wine?
+    ground_truth: >-
+      Red. The bordeaux-wine record carries color: red — a lookup by name,
+      one hop to a value.
+    # CALLOUT: kind The kind names the check a correct answer must survive.
+    answer_kind:
+      - lookup
+    # CALLOUT: anchor An anchor names a record in the target graph. Written bare, it expands against the declared target_schema — the contract's slot definition says so, which is what keeps twenty-odd repetitions of the namespace out of this file.
+    expected_anchors:
+      - bordeaux-wine
+
+  - id: cq-03
+    name: Cabernet Sauvignon with seafood
+    question: Does Cabernet Sauvignon go well with seafood?
+    ground_truth: >-
+      None on record. No pairing recommendation links the Cabernet
+      Sauvignon to a seafood dish, and none is inferable. Under a
+      closed-world reading the absence of a recommendation is not evidence
+      against the pairing, only the absence of a claim for it.
+    answer_kind:
+      - closed-world-negative
+    expected_anchors:
+      - cabernet-sauvignon
+      - seafood-dish
+    # CALLOUT: absence A negative states which absence it claims: no single record references both of these anchors. That this slot carries an absence claim is declared in the contract's schema, not configured per consumer.
+    unconnected_anchors:
+      - cabernet-sauvignon
+      - seafood-dish
+    # CALLOUT: via Naming the connecting class narrows the claim to what the ground truth says: no PairingRecommendation joins them. A class is named by its full URI — expansion is for record anchors, not schema terms.
+    connecting_class: https://w3id.org/wine-linkml/PairingRecommendation
+
+  - id: cq-04
+    name: Wine for grilled meat
+    question: What is the best choice of wine for grilled meat?
+    ground_truth: >-
+      The Cabernet Sauvignon, on the pr-cabsauv-grilledmeat recommendation,
+      with confidence 0.9 and the rationale that its tannins bind the fats
+      and proteins of grilled red meat.
+    answer_kind:
+      - attribution
+    expected_anchors:
+      - grilled-meat
+      - cabernet-sauvignon
+      - pr-cabsauv-grilledmeat
+    # CALLOUT: citation A citation must also be an anchor, and it is always a judgment-side record — the recommendation is what carries the rationale, source, and confidence the answer rests on.
+    expected_citations:
+      - pr-cabsauv-grilledmeat
+
+  - id: cq-05
+    name: Characteristics affecting a pairing
+    question: >-
+      Which characteristics of a wine affect its appropriateness for a
+      dish?
+    ground_truth: >-
+      A pattern across the three recommendations' rationales, which no
+      single record states: tannin against protein, acidity against
+      delicate seafood, and a light body's versatility with white meat.
+    answer_kind:
+      - synthesis
+    expected_anchors:
+      - pr-cabsauv-grilledmeat
+      - pr-chardonnay-seafood
+      - pr-beaujolais-chicken
+      - cabernet-sauvignon
+      - napa-chardonnay
+      - chateau-morgon-beaujolais
+    expected_citations:
+      - pr-cabsauv-grilledmeat
+      - pr-chardonnay-seafood
+      - pr-beaujolais-chicken
+
+  - id: cq-06
+    name: Vintage variation
+    question: Does a bouquet or body of a specific wine change with vintage year?
+    ground_truth: >-
+      Yes. The 2017 and 2018 Napa Zinfandel share grape, region and maker
+      and differ in vintage and in body: medium against full.
+    answer_kind:
+      - comparison
+    expected_anchors:
+      - napa-zinfandel-2017
+      - napa-zinfandel-2018
+      - vy-2017
+      - vy-2018
+
+  - id: cq-07
+    name: Good vintages for Napa Zinfandel
+    question: What were good vintages for Napa Zinfandel?
+    ground_truth: >-
+      2018. The regional vintage chart rates 2018 good and 2017 average,
+      each with its source and confidence. The answer carries attribution:
+      not "2018 was good" but "the regional vintage chart rates 2018 good."
+    # CALLOUT: two-kinds An attribution and a comparison at once — no honest rule ranks them, which is what made the slot multivalued.
+    answer_kind:
+      - attribution
+      - comparison
+    expected_anchors:
+      - napa-zinfandel-2018
+      - napa-zinfandel-2017
+      - va-napa-zin-2018
+      - va-napa-zin-2017
+    expected_citations:
+      - va-napa-zin-2018
+      - va-napa-zin-2017

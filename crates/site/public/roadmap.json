@@ -189,6 +189,10 @@
         {
           "criterion": "The YAML and Turtle readers give the same benchmark for wine",
           "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
+        },
+        {
+          "criterion": "grade reads a benchmark given as YAML, with cqa's schema, and reports as it does from the Turtle",
+          "test": "tests/cli.rs::grading_from_the_yaml_matches_grading_from_the_turtle"
         }
       ]
     },

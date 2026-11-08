@@ -90,15 +90,15 @@ jobs:
       - name: Run tests on the regenerated graphs
         run: cargo nextest run --workspace
 
-      # PROVENANCE always differs (it names the commits), so only the
-      # graphs are compared; `add -N` makes a graph that is not committed
-      # yet show up in the diff. Runs even when the tests fail, so the diff
-      # that explains the failure is in the log.
+      # PROVENANCE always differs (it names the commits), so everything
+      # else in the fixtures is compared; `add -N` makes a file that is not
+      # committed yet show up in the diff. Runs even when the tests fail, so
+      # the diff that explains the failure is in the log.
       - name: Compare with the committed graphs
         if: success() || failure()
         run: |
-          git add -N -- 'tests/fixtures/*.ttl'
-          if ! git diff --exit-code -- 'tests/fixtures/*.ttl'; then
+          git add -N -- tests/fixtures ':!tests/fixtures/PROVENANCE'
+          if ! git diff --exit-code -- tests/fixtures ':!tests/fixtures/PROVENANCE'; then
             echo "::error::The committed test graphs are behind the producers' main. Run scripts/regen-fixtures.sh and commit the result."
             exit 1
           fi

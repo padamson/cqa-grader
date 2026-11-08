@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   `AnswerKindEnum#lookup` (LinkML's gen-owl, and panschema after its 0.4.0
   release) or `AnswerKindEnum/lookup` (panschema's 0.4.0 release). An IRI
   outside that enum is an unknown answer kind.
+- `Benchmark::from_yaml` reads a benchmark from its LinkML source, the
+  YAML read against cqa's schema through `panschema-model`, and gives the
+  same `Benchmark` as the Turtle for wine. A load that warns, leaves an
+  anchor unexpanded, or skips a field or entry it could not place is
+  refused rather than graded in part.
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
 - `grade`: four base checks per question (`attempted`, `anchors-reached`,

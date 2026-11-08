@@ -65,7 +65,7 @@ benchmark.'
       link ../../src/baseline.rs
     }
     benchmark = component 'benchmark' {
-      description 'Read a cqa benchmark from its published Turtle artifact.'
+      description 'Read a cqa benchmark from its published Turtle or its LinkML source.'
       metadata {
         path 'src/benchmark.rs'
       }

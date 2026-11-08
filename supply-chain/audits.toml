@@ -105,10 +105,22 @@ user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-12-23"
 end = "2027-10-17"
 
+[[trusted.equivalent]]
+criteria = "safe-to-deploy"
+user-id = 539 # Josh Stone (cuviper)
+start = "2023-02-05"
+end = "2027-11-08"
+
 [[trusted.hashbrown]]
 criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-04-02"
+end = "2027-11-08"
+
+[[trusted.indexmap]]
+criteria = "safe-to-deploy"
+user-id = 539 # Josh Stone (cuviper)
+start = "2020-01-15"
 end = "2027-11-08"
 
 [[trusted.is_terminal_polyfill]]
@@ -219,6 +231,12 @@ trusted-publisher = "github:oxigraph/oxigraph"
 start = "2025-07-20"
 end = "2027-11-08"
 
+[[trusted.panschema-model]]
+criteria = "safe-to-deploy"
+user-id = 366126 # Paul Adamson (padamson)
+start = "2026-09-27"
+end = "2027-11-08"
+
 [[trusted.parking_lot_core]]
 criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
@@ -260,6 +278,12 @@ criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-03-30"
 end = "2027-09-03"
+
+[[trusted.ryu]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-05-02"
+end = "2027-11-08"
 
 [[trusted.scopeguard]]
 criteria = "safe-to-deploy"

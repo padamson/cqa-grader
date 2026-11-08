@@ -227,6 +227,11 @@ assert!(report.passed, "{}", report.to_text());
 # Ok::<(), cqa_grader::Error>(())
 ```
 
+`Benchmark::from_yaml("cqa.yaml", "wine-benchmark.yaml")` reads the same
+benchmark from its LinkML source instead: the YAML the Turtle is generated
+from, read against cqa's schema through panschema's model, with each short
+anchor expanded as the Turtle has it.
+
 ## Development
 
 See [CLAUDE.md](CLAUDE.md) for the commands.
@@ -247,7 +252,7 @@ and [cqa-schema](https://github.com/padamson/cqa-schema) next to this
 repository.
 
 ```bash
-./scripts/regen-fixtures.sh     # rewrites tests/fixtures/*.ttl and PROVENANCE
+./scripts/regen-fixtures.sh     # rewrites tests/fixtures/ and PROVENANCE
 cargo nextest run
 ```
 

@@ -8,7 +8,8 @@ benchmark's CI has something to grade.
 
 ## Layout
 
-- `src/benchmark.rs` reads a `cqa:Benchmark` from Turtle (oxigraph, SPARQL).
+- `src/benchmark.rs` reads a `cqa:Benchmark` from Turtle (oxigraph, SPARQL)
+  or from its LinkML YAML (`panschema-model`); a test keeps the two equal.
 - `src/trace.rs` is the trace format, the contract with graded systems.
   `schemas/trace.schema.json` is generated from it and a test keeps them equal.
 - `src/grade.rs` scores a trace: four base checks plus one per answer kind.
@@ -38,12 +39,13 @@ benchmark's CI has something to grade.
 ## Test graphs are generated, then committed
 
 `panschema.toml` consumes wine (ontology-authoring-template) and cqa
-(cqa-schema) as `path:` siblings and generates `tests/fixtures/*.ttl`.
-Both outputs are byte-identical to wine's own published `site/artifacts/`.
-They are committed like a lockfile, with `tests/fixtures/PROVENANCE`
-naming the sibling and panschema versions they came from, so a fresh
-clone runs the tests with neither the siblings nor panschema. Never edit
-them by hand; regenerate:
+(cqa-schema) as `path:` siblings and generates `tests/fixtures/`: two
+Turtle graphs, byte-identical to wine's own published `site/artifacts/`,
+and the benchmark's LinkML sources (cqa's schema with its imports merged,
+and a byte copy of wine's `data/wine-benchmark.yaml`). They are committed
+like a lockfile, with `tests/fixtures/PROVENANCE` naming the sibling and
+panschema versions they came from, so a fresh clone runs the tests with
+neither the siblings nor panschema. Never edit them by hand; regenerate:
 
 ```bash
 ./scripts/regen-fixtures.sh                                         # panschema on PATH

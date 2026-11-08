@@ -1,0 +1,191 @@
+id: https://w3id.org/cqa/
+name: cqa
+description: |-
+  A vocabulary for competency question benchmarks over a knowledge
+  graph. One record pairs a question with the specification of its
+  correct answer: the answer in prose, the kind of answering the
+  question demands, and the records a correct answer must retrieve
+  and cite. The graph being evaluated is external — its records are
+  referenced by IRI rather than held here.
+license: https://creativecommons.org/licenses/by/4.0/
+version: 0.1.1
+prefixes:
+  linkml: https://w3id.org/linkml/
+  cqa: https://w3id.org/cqa/
+  obo: http://purl.obolibrary.org/obo/
+  cco: https://www.commoncoreontologies.org/
+  earl: http://www.w3.org/ns/earl#
+  skos: http://www.w3.org/2004/02/skos/core#
+default_prefix: cqa
+default_range: string
+imports:
+- linkml:types
+classes:
+  CompetencyQuestionAnswer:
+    description: A competency question paired with the specification of its correct answer.
+    subclass_of: cco:ont00000958
+    close_mappings:
+    - earl:TestCase
+    slots:
+    - id
+    - name
+    - question
+    - ground_truth
+    - answer_kind
+    - expected_anchors
+    - expected_citations
+    - unconnected_anchors
+    - connecting_class
+    slot_usage:
+      id:
+        key: true
+        pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+      expected_anchors:
+        required: true
+    rules:
+    - description: A closed-world negative states the connection it claims is absent.
+      preconditions:
+        slot_conditions:
+          answer_kind:
+            equals_string: closed-world-negative
+      postconditions:
+        slot_conditions:
+          unconnected_anchors:
+            value_presence: PRESENT
+    - description: An attribution names the source its answer rests on.
+      preconditions:
+        slot_conditions:
+          answer_kind:
+            equals_string: attribution
+      postconditions:
+        slot_conditions:
+          expected_citations:
+            value_presence: PRESENT
+    - description: A comparison sets two or more records against each other.
+      preconditions:
+        slot_conditions:
+          answer_kind:
+            equals_string: comparison
+      postconditions:
+        slot_conditions:
+          expected_anchors:
+            minimum_cardinality: 2
+    - description: A synthesis draws on two or more records, since a pattern no single record states needs more than one to state it.
+      preconditions:
+        slot_conditions:
+          answer_kind:
+            equals_string: synthesis
+      postconditions:
+        slot_conditions:
+          expected_anchors:
+            minimum_cardinality: 2
+  Benchmark:
+    description: A named set of competency question answers, evaluated against one knowledge graph.
+    subclass_of: cco:ont00000958
+    close_mappings:
+    - earl:TestRequirement
+    tree_root: true
+    slot_usage:
+      id:
+        identifier: true
+        pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+    slots:
+    - id
+    - name
+    - description
+    - target_schema
+    - target_schema_version
+    - target_dataset
+    - target_dataset_version
+    attributes:
+      competency_question_answers:
+        description: The questions this benchmark holds.
+        range: CompetencyQuestionAnswer
+        multivalued: true
+        inlined_as_list: true
+  DomainRecord:
+    description: A record in the knowledge graph that a benchmark is evaluated against. Its instances belong to that graph, not to this schema.
+    slots:
+    - id
+    slot_usage:
+      id:
+        identifier: true
+slots:
+  id:
+    description: The short, stable identifier a record is known by.
+  name:
+    description: A short human-readable label.
+  description:
+    description: A longer prose account of what this benchmark covers.
+  question:
+    description: The competency question, in the words it would be asked in.
+    required: true
+  ground_truth:
+    description: The correct answer in prose. A generated answer is scored against this; the anchors below are what retrieval is scored against.
+    required: true
+  answer_kind:
+    description: The kinds of answering this question calls for. Every kind named is a separate check, and all of them must pass.
+    range: AnswerKindEnum
+    multivalued: true
+    required: true
+  expected_anchors:
+    description: The records a correct answer must retrieve, as IRIs into the target graph. For an answer that reports no such record exists, these are the records whose absent connection is the answer, and reaching them is what distinguishes that answer from a system that retrieved nothing.
+    range: DomainRecord
+    multivalued: true
+    annotations:
+      expand_against: target_schema
+  expected_citations:
+    description: 'The records a correct answer must rest on, as IRIs into the target graph. Always among the anchors: retrieving a record is not the same as answering from it. Empty is a real answer.'
+    is_a: expected_anchors
+    range: DomainRecord
+    multivalued: true
+    annotations:
+      expand_against: target_schema
+  unconnected_anchors:
+    description: 'The anchors that no single record joins, for an answer whose correctness is that the graph holds no such connection. A subset of the anchors: a claim about a record retrieval was never required to reach cannot be checked against what was retrieved. Records held by a container do not count as joined by it.'
+    is_a: expected_anchors
+    range: DomainRecord
+    multivalued: true
+    annotations:
+      expand_against: target_schema
+      asserts_absence:
+        value:
+          via_slot: connecting_class
+  connecting_class:
+    description: 'The class a joining record would belong to, as a URI in the target schema. Optional, because a benchmark can be written against a graph whose schema its author does not have: without it the claim is that no record of any kind joins the anchors, and with it the claim is narrowed to one kind.'
+    range: uri
+  target_schema:
+    description: The schema the target graph's records conform to, as a URI.
+    range: uri
+    required: true
+  target_schema_version:
+    description: 'The version of the target schema the anchors were written against: the release identifier of whatever publishes the schema, which can differ from the version the schema file declares. It fixes how identifiers are minted, which can change between releases.'
+    required: true
+    annotations:
+      records_version_of:
+        value:
+          sibling_slot: target_schema
+  target_dataset:
+    description: 'Which instance graph the anchors resolve in, named as the target package publishes it: a dataset name from that package''s publish manifest. One schema can have several, and they need not hold the same records, so naming the schema and its version does not identify one.'
+    required: true
+  target_dataset_version:
+    description: 'The version of the dataset the anchors were written against: the release identifier of whatever publishes it, which is the schema''s own version when the two ship together. It fixes which records exist, since records can be added, corrected or removed without the schema changing.'
+    required: true
+    annotations:
+      records_version_of:
+        value:
+          sibling_slot: target_dataset
+enums:
+  AnswerKindEnum:
+    description: The kinds of answering a competency question can call for. Each names a different check on a correct answer.
+    permissible_values:
+      lookup:
+        description: A value read from a single record.
+      closed-world-negative:
+        description: The correct answer is that the graph holds no such record. Absence of a record is not evidence against the claim, only absence of a claim for it.
+      comparison:
+        description: Two or more records set against each other on a shared slot.
+      synthesis:
+        description: A pattern across several records that no single record states.
+      attribution:
+        description: An answer that must carry the source it rests on. The question is answerable without it, but not answerable well.
