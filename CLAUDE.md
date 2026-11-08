@@ -75,19 +75,6 @@ Watch CI with `scripts/ci-watch.sh`, not an inline `gh` loop: the
 sandbox exclusion matches the script, and a `gh` call inside a loop runs
 sandboxed and fails.
 
-## Dependabot
-
-Every Dependabot PR is set to auto-merge by
-`.github/workflows/dependabot-auto-merge.yml`, with a GitHub App's token
-so the merge triggers the push run on `main`. The required checks in
-`main`'s branch protection are the gate, so a new job that should block a
-merge has to be added there too. A PR that bumps `actions/create-github-app-token`
-edits that workflow, so its hold job fails red and the PR is merged by
-hand after reading the bump. A Supply Chain Review failure is fixed on
-`main` (audit or exempt the crates `cargo vet` names), then
-`@dependabot rebase` on the PR; anything committed to the PR branch is
-wiped by Dependabot's next force-push.
-
 ## Sandbox
 
 Claude Code's sandbox (sandbox-runtime, Seatbelt on macOS) is on
