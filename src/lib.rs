@@ -35,7 +35,7 @@ mod rdf;
 pub mod trace;
 
 pub use baseline::Baseline;
-pub use benchmark::{AnswerKind, Benchmark, Question};
+pub use benchmark::{AnswerKind, Benchmark, Question, Refusal, Unread};
 pub use grade::{Check, Outcome, QuestionResult, Report, Require, Summary, grade};
 pub use trace::{Attempt, Graph, System, TRACE_FORMAT, Trace};
 
@@ -45,9 +45,11 @@ pub enum Error {
     /// The RDF store could not be created, loaded, or queried.
     #[error("rdf: {0}")]
     Rdf(String),
-    /// The benchmark file parsed as RDF but does not describe one benchmark.
+    /// The benchmark file was read but does not describe one benchmark
+    /// that every check could grade. The refusal is the message, not a
+    /// source, so a printed chain gives it once.
     #[error("benchmark: {0}")]
-    Benchmark(String),
+    Benchmark(Refusal),
     /// The graph parsed as RDF but does not state one dataset it holds.
     #[error("graph: {0}")]
     Graph(String),
@@ -75,6 +77,12 @@ pub enum Error {
 
 /// `Result` with this crate's [`Error`].
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl From<Refusal> for Error {
+    fn from(refusal: Refusal) -> Self {
+        Error::Benchmark(refusal)
+    }
+}
 
 impl Error {
     pub(crate) fn rdf(e: impl std::fmt::Display) -> Self {

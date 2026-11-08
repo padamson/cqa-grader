@@ -24,9 +24,9 @@ use panschema_model::yaml_reader::YamlReader;
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 
+use crate::Result;
 use crate::rdf::{load_turtle, select};
 use crate::trace::Graph;
-use crate::{Error, Result};
 
 const CQA: &str = "https://w3id.org/cqa/";
 
@@ -124,6 +124,145 @@ pub struct Benchmark {
     pub questions: Vec<Question>,
 }
 
+/// Why a benchmark was refused: it could not be read whole, or it holds a
+/// question no check could grade.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum Refusal {
+    /// The LinkML source could not be loaded at all.
+    #[error("{error}{}", warnings.iter().map(|w| format!("; {w}")).collect::<String>())]
+    Load {
+        /// Why it could not be loaded.
+        error: String,
+        /// The warnings the load gave before it failed.
+        warnings: Vec<String>,
+    },
+    /// The LinkML source loaded, but in part.
+    #[error("{}", .0.iter().map(Unread::to_string).collect::<Vec<_>>().join("; "))]
+    PartlyRead(Vec<Unread>),
+    /// No benchmark with an IRI and an id. A LinkML record mints its IRI
+    /// from its id, so there only the id can be missing.
+    #[error("no Benchmark with an IRI and an id found")]
+    NoBenchmark,
+    /// More than one benchmark in a file that must hold one.
+    #[error("expected one Benchmark, found {0}")]
+    ManyBenchmarks(usize),
+    /// The benchmark lists no questions.
+    #[error("benchmark <{0}> holds no competency question answers")]
+    NoQuestions(String),
+    /// The benchmark lists an id that names no question.
+    #[error("{0}: not a CompetencyQuestionAnswer")]
+    NotAQuestion(String),
+    /// A record lacks a slot it must have.
+    #[error("{record}: no {slot}")]
+    Missing {
+        /// The record's id, or its IRI in angle brackets where it has no id.
+        record: String,
+        /// The slot.
+        slot: &'static str,
+    },
+    /// A record has more than one value where it may have one.
+    #[error("{record}: more than one {slot}")]
+    MoreThanOne {
+        /// The record's id, or its IRI in angle brackets where the slot is
+        /// its id.
+        record: String,
+        /// The slot.
+        slot: &'static str,
+    },
+    /// A number or boolean where text belongs. panschema reads an unquoted
+    /// `1.0` as a number and an unquoted `yes` as a boolean, so neither
+    /// reads back as the text it was meant to be.
+    #[error("{record}: `{slot}` is {value}, not text; quote it")]
+    Unquoted {
+        /// The record's id.
+        record: String,
+        /// The slot.
+        slot: &'static str,
+        /// The value as it was read.
+        value: String,
+    },
+    /// Some other value that is not text where text belongs.
+    #[error("{record}: `{slot}` holds {kind}, not text")]
+    NotText {
+        /// The record's id.
+        record: String,
+        /// The slot.
+        slot: &'static str,
+        /// What it holds instead.
+        kind: String,
+    },
+    /// An answer kind outside `cqa:AnswerKindEnum`.
+    #[error("{question}: unknown answer kind `{kind}`")]
+    UnknownAnswerKind {
+        /// The question's id.
+        question: String,
+        /// The kind as written: a name in the YAML, an IRI in the Turtle.
+        kind: String,
+    },
+    /// A closed-world negative that names no anchors left unjoined, so it
+    /// would grade on its assertion of absence alone.
+    #[error("{0}: closed-world-negative with no unconnected_anchors")]
+    NegativeWithoutUnconnectedAnchors(String),
+    /// Two questions share an id.
+    #[error("{0}: more than one question has this id")]
+    DuplicateQuestion(String),
+}
+
+/// What a LinkML load read past, as `panschema-model` records it.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum Unread {
+    /// A warning the load gave.
+    #[error("{0}")]
+    Warning(String),
+    /// A value that did not expand against the slot it is relative to.
+    #[error("{record}: `{slot}` did not expand against `{base_slot}`")]
+    Unexpanded {
+        /// The record's id.
+        record: String,
+        /// The slot holding the value.
+        slot: String,
+        /// The slot it expands against.
+        base_slot: String,
+    },
+    /// An id more than one record has.
+    #[error("{0}: more than one record has this id")]
+    DuplicateId(String),
+    /// A field that is not a slot of its record's class.
+    #[error("{record}: `{field}` is not a slot of {class}")]
+    UndeclaredField {
+        /// The record's id.
+        record: String,
+        /// The field.
+        field: String,
+        /// The record's class.
+        class: String,
+    },
+    /// A collection entry that could not be read as a record.
+    #[error("`{slot}`: {} {reason}", key.as_ref().map_or("an entry".into(), |k| format!("entry `{k}`")))]
+    UnusableEntry {
+        /// The collection's slot.
+        slot: String,
+        /// The entry's key, in a collection keyed by id.
+        key: Option<String>,
+        /// Why it could not be read.
+        reason: String,
+    },
+    /// An id the benchmark shares with a record, so no benchmark was read.
+    #[error("{0}: the benchmark and a record share this id, so no Benchmark was read")]
+    RootCollision(String),
+}
+
+impl Refusal {
+    fn missing(record: impl Into<String>, slot: &'static str) -> Self {
+        Refusal::Missing {
+            record: record.into(),
+            slot,
+        }
+    }
+}
+
 impl Benchmark {
     /// Read the benchmark from a Turtle file.
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
@@ -148,53 +287,53 @@ impl Benchmark {
     pub fn from_yaml(schema: impl AsRef<Path>, data: impl AsRef<Path>) -> Result<Self> {
         let loaded =
             panschema_model::load_dataset(schema.as_ref(), data.as_ref(), &YamlReader::new())
-                .map_err(|failure| {
-                    let mut message = failure.to_string();
-                    for warning in &failure.warnings {
-                        message.push_str("; ");
-                        message.push_str(warning);
-                    }
-                    Error::Benchmark(message)
+                .map_err(|failure| Refusal::Load {
+                    error: failure.to_string(),
+                    warnings: failure.warnings,
                 })?;
         Self::from_loaded(&loaded)
     }
 
     fn from_loaded(loaded: &LoadedDataset) -> Result<Self> {
         let set = &loaded.instances;
-        let unread: Vec<String> = loaded
+        let unread: Vec<Unread> = loaded
             .warnings
             .iter()
             .cloned()
-            .chain(set.expansion_gaps.iter().map(|g| {
-                format!(
-                    "{}: `{}` did not expand against `{}`",
-                    g.record, g.slot, g.base_slot
-                )
+            .map(Unread::Warning)
+            .chain(set.expansion_gaps.iter().map(|g| Unread::Unexpanded {
+                record: g.record.clone(),
+                slot: g.slot.clone(),
+                base_slot: g.base_slot.clone(),
             }))
-            .chain(
-                set.duplicate_ids
-                    .iter()
-                    .map(|id| format!("{id}: more than one record has this id")),
-            )
+            .chain(set.duplicate_ids.iter().cloned().map(Unread::DuplicateId))
             .chain(
                 set.undeclared_fields
                     .iter()
-                    .map(|f| format!("{}: `{}` is not a slot of {}", f.record, f.field, f.class)),
+                    .map(|f| Unread::UndeclaredField {
+                        record: f.record.clone(),
+                        field: f.field.clone(),
+                        class: f.class.clone(),
+                    }),
             )
             .chain(
                 set.unusable_collection_entries
                     .iter()
-                    .map(|e| match &e.key {
-                        Some(key) => format!("`{}`: entry `{key}` {}", e.slot, e.reason),
-                        None => format!("`{}`: an entry {}", e.slot, e.reason),
+                    .map(|e| Unread::UnusableEntry {
+                        slot: e.slot.clone(),
+                        key: e.key.clone(),
+                        reason: e.reason.clone(),
                     }),
             )
-            .chain(set.root_collision.iter().map(|id| {
-                format!("{id}: the benchmark and a record share this id, so no Benchmark was read")
-            }))
+            .chain(
+                set.root_collision
+                    .iter()
+                    .cloned()
+                    .map(Unread::RootCollision),
+            )
             .collect();
         if !unread.is_empty() {
-            return Err(Error::Benchmark(unread.join("; ")));
+            return Err(Refusal::PartlyRead(unread).into());
         }
 
         let of_type = |class: &'static str| {
@@ -204,7 +343,7 @@ impl Benchmark {
         };
         // cqa has one `tree_root`, so a dataset holds at most one Benchmark.
         let Some(benchmark) = of_type("Benchmark").next() else {
-            return Err(Error::Benchmark("no Benchmark record found".into()));
+            return Err(Refusal::NoBenchmark.into());
         };
 
         let records: BTreeMap<&str, &Instance> = of_type("CompetencyQuestionAnswer")
@@ -218,10 +357,10 @@ impl Benchmark {
         for id in listed {
             let record = records
                 .get(id.as_str())
-                .ok_or_else(|| Error::Benchmark(format!("{id}: not a CompetencyQuestionAnswer")))?;
+                .ok_or_else(|| Refusal::NotAQuestion(id.clone()))?;
             // An anchor written as a CURIE expands as panschema expands it
             // when it writes the Turtle.
-            let anchors = |name: &str| -> Result<BTreeSet<String>> {
+            let anchors = |name: &'static str| -> Result<BTreeSet<String>> {
                 Ok(values(record, name)?
                     .iter()
                     .map(|v| expand_curie_or_verbatim(&loaded.schema, v))
@@ -230,11 +369,12 @@ impl Benchmark {
             let answer_kinds = values(record, "answer_kind")?
                 .into_iter()
                 .map(|name| {
-                    AnswerKind::from_name(&name).ok_or_else(|| {
-                        Error::Benchmark(format!("{id}: unknown answer kind `{name}`"))
+                    AnswerKind::from_name(&name).ok_or_else(|| Refusal::UnknownAnswerKind {
+                        question: id.clone(),
+                        kind: name,
                     })
                 })
-                .collect::<Result<_>>()?;
+                .collect::<std::result::Result<_, _>>()?;
             questions.push(Question {
                 iri: instance_iri_string(&loaded.schema, record),
                 question: required(record, "question")?,
@@ -267,9 +407,11 @@ impl Benchmark {
             &format!(
                 "PREFIX cqa: <{CQA}>
                  SELECT ?b ?id ?name ?ts ?tsv ?td ?tdv WHERE {{
-                   ?b a cqa:Benchmark ; cqa:id ?id ;
-                      cqa:target_schema ?ts ; cqa:target_schema_version ?tsv ;
-                      cqa:target_dataset ?td ; cqa:target_dataset_version ?tdv .
+                   ?b a cqa:Benchmark ; cqa:id ?id .
+                   OPTIONAL {{ ?b cqa:target_schema ?ts }}
+                   OPTIONAL {{ ?b cqa:target_schema_version ?tsv }}
+                   OPTIONAL {{ ?b cqa:target_dataset ?td }}
+                   OPTIONAL {{ ?b cqa:target_dataset_version ?tdv }}
                    OPTIONAL {{ ?b cqa:name ?name }}
                    FILTER(isIRI(?b))
                  }}"
@@ -283,31 +425,33 @@ impl Benchmark {
             .collect::<Result<_>>()?;
         let row = match (found.len(), benchmarks.first()) {
             (1, Some(row)) => row,
-            (0, _) => {
-                return Err(Error::Benchmark(
-                    "no cqa:Benchmark with an IRI and its four target pins found".into(),
-                ));
-            }
-            (n, _) => {
-                return Err(Error::Benchmark(format!(
-                    "expected one cqa:Benchmark, found {n}"
-                )));
-            }
+            (0, _) => return Err(Refusal::NoBenchmark.into()),
+            (n, _) => return Err(Refusal::ManyBenchmarks(n).into()),
         };
         let iri = row.require("b")?;
-        for (var, slot) in [
-            ("id", "id"),
-            ("ts", "target_schema"),
-            ("tsv", "target_schema_version"),
-            ("td", "target_dataset"),
-            ("tdv", "target_dataset_version"),
-        ] {
-            if benchmarks.iter().any(|r| r.get(var) != row.get(var)) {
-                return Err(Error::Benchmark(format!(
-                    "<{iri}> has more than one {slot}"
-                )));
+        let differs = |var| benchmarks.iter().any(|r| r.get(var) != row.get(var));
+        if differs("id") {
+            return Err(Refusal::MoreThanOne {
+                record: format!("<{iri}>"),
+                slot: "id",
             }
+            .into());
         }
+        let id = row.require("id")?;
+        let pin = |var, slot| -> Result<String> {
+            if differs(var) {
+                return Err(Refusal::MoreThanOne {
+                    record: id.clone(),
+                    slot,
+                }
+                .into());
+            }
+            Ok(row.get(var).ok_or_else(|| Refusal::missing(&id, slot))?)
+        };
+        let target_schema = pin("ts", "target_schema")?;
+        let target_schema_version = pin("tsv", "target_schema_version")?;
+        let target_dataset = pin("td", "target_dataset")?;
+        let target_dataset_version = pin("tdv", "target_dataset_version")?;
 
         let mut questions: BTreeMap<String, Question> = BTreeMap::new();
         for q in select(
@@ -325,17 +469,29 @@ impl Benchmark {
             let q_iri = q.require("q")?;
             let id = q
                 .get("id")
-                .ok_or_else(|| Error::Benchmark(format!("<{q_iri}>: no id")))?;
-            let slot = |var: &str, name: &str| {
-                q.get(var)
-                    .ok_or_else(|| Error::Benchmark(format!("{id}: no {name}")))
-            };
+                .ok_or_else(|| Refusal::missing(format!("<{q_iri}>"), "id"))?;
+            let slot = |var: &str, slot| q.get(var).ok_or_else(|| Refusal::missing(&id, slot));
             let question = slot("question", "question")?;
             let ground_truth = slot("gt", "ground_truth")?;
-            if questions.contains_key(&q_iri) {
-                return Err(Error::Benchmark(format!(
-                    "{id}: more than one id, question or ground_truth"
-                )));
+            // A question with two values at one of these slots gives one
+            // row per combination, so a second row says which. Rows hold
+            // lexical forms, so two values that differ only in language
+            // or datatype say none.
+            if let Some(first) = questions.get(&q_iri) {
+                let slot = if first.id != id {
+                    "id"
+                } else if first.question != question {
+                    "question"
+                } else if first.ground_truth != ground_truth {
+                    "ground_truth"
+                } else {
+                    "id, question or ground_truth"
+                };
+                return Err(Refusal::MoreThanOne {
+                    record: first.id.clone(),
+                    slot,
+                }
+                .into());
             }
             questions.insert(
                 q_iri.clone(),
@@ -376,9 +532,11 @@ impl Benchmark {
                 };
                 match pick {
                     Slot::Kind => {
-                        let kind = AnswerKind::from_iri(&v).ok_or_else(|| {
-                            Error::Benchmark(format!("{}: unknown answer kind <{v}>", question.id))
-                        })?;
+                        let kind =
+                            AnswerKind::from_iri(&v).ok_or_else(|| Refusal::UnknownAnswerKind {
+                                question: question.id.clone(),
+                                kind: v.clone(),
+                            })?;
                         question.answer_kinds.insert(kind);
                     }
                     Slot::Anchors => {
@@ -396,13 +554,13 @@ impl Benchmark {
         }
 
         Benchmark {
-            id: row.require("id")?,
+            id,
             iri,
             name: row.get("name"),
-            target_schema: row.require("ts")?,
-            target_schema_version: row.require("tsv")?,
-            target_dataset: row.require("td")?,
-            target_dataset_version: row.require("tdv")?,
+            target_schema,
+            target_schema_version,
+            target_dataset,
+            target_dataset_version,
             questions: questions.into_values().collect(),
         }
         .checked()
@@ -413,10 +571,7 @@ impl Benchmark {
     /// readers end here, so they refuse the same keys.
     fn checked(mut self) -> Result<Self> {
         if self.questions.is_empty() {
-            return Err(Error::Benchmark(format!(
-                "benchmark <{}> holds no competency question answers",
-                self.iri
-            )));
+            return Err(Refusal::NoQuestions(self.iri).into());
         }
         // cqa declares citations and unconnected anchors as sub-properties
         // of `expected_anchors`. The published data lists each explicitly,
@@ -430,23 +585,17 @@ impl Benchmark {
                 .collect();
             question.expected_anchors.extend(extra);
             if question.answer_kinds.is_empty() {
-                return Err(Error::Benchmark(format!("{}: no answer_kind", question.id)));
+                return Err(Refusal::missing(&question.id, "answer_kind").into());
             }
             if question.expected_anchors.is_empty() {
-                return Err(Error::Benchmark(format!(
-                    "{}: no expected_anchors",
-                    question.id
-                )));
+                return Err(Refusal::missing(&question.id, "expected_anchors").into());
             }
             if question
                 .answer_kinds
                 .contains(&AnswerKind::ClosedWorldNegative)
                 && question.unconnected_anchors.is_empty()
             {
-                return Err(Error::Benchmark(format!(
-                    "{}: closed-world-negative with no unconnected_anchors",
-                    question.id
-                )));
+                return Err(Refusal::NegativeWithoutUnconnectedAnchors(question.id.clone()).into());
             }
         }
 
@@ -454,10 +603,7 @@ impl Benchmark {
         // refuses a repeated id before the YAML reader sees it.
         self.questions.sort_by(|a, b| a.id.cmp(&b.id));
         if let Some(pair) = self.questions.windows(2).find(|w| w[0].id == w[1].id) {
-            return Err(Error::Benchmark(format!(
-                "{}: more than one question has this id",
-                pair[0].id
-            )));
+            return Err(Refusal::DuplicateQuestion(pair[0].id.clone()).into());
         }
         Ok(self)
     }
@@ -478,7 +624,7 @@ impl Benchmark {
 
 /// A record's values at `slot`, as text: a string literal, or the record a
 /// reference names (an anchor, expanded to its IRI).
-fn values(record: &Instance, slot: &str) -> Result<Vec<String>> {
+fn values(record: &Instance, slot: &'static str) -> Result<Vec<String>> {
     let Some(found) = record.slot_values.iter().find(|v| v.slot == slot) else {
         return Ok(Vec::new());
     };
@@ -488,34 +634,36 @@ fn values(record: &Instance, slot: &str) -> Result<Vec<String>> {
         .map(|value| match value {
             InstanceValue::Scalar(ScalarValue::String(s)) => Ok(s.clone()),
             InstanceValue::Reference { target, .. } => Ok(target.clone()),
-            // panschema writes an unquoted number as a number, not as the
-            // text it was meant to be, so `1.0` would read back as `1`.
-            InstanceValue::Scalar(scalar) => Err(Error::Benchmark(format!(
-                "{}: `{slot}` is {}, not text; quote it",
-                record.id,
-                scalar_to_display(scalar)
-            ))),
-            InstanceValue::Unexpected(kind) => Err(Error::Benchmark(format!(
-                "{}: `{slot}` holds {kind}, not text",
-                record.id
-            ))),
+            InstanceValue::Scalar(scalar) => Err(Refusal::Unquoted {
+                record: record.id.clone(),
+                slot,
+                value: scalar_to_display(scalar),
+            }
+            .into()),
+            InstanceValue::Unexpected(kind) => Err(Refusal::NotText {
+                record: record.id.clone(),
+                slot,
+                kind: kind.to_string(),
+            }
+            .into()),
         })
         .collect()
 }
 
 /// A record's one value at `slot`, which it must have.
-fn required(record: &Instance, slot: &str) -> Result<String> {
-    single(record, slot)?.ok_or_else(|| Error::Benchmark(format!("{}: no {slot}", record.id)))
+fn required(record: &Instance, slot: &'static str) -> Result<String> {
+    single(record, slot)?.ok_or_else(|| Refusal::missing(&record.id, slot).into())
 }
 
 /// A record's one value at `slot`, if it has one.
-fn single(record: &Instance, slot: &str) -> Result<Option<String>> {
+fn single(record: &Instance, slot: &'static str) -> Result<Option<String>> {
     let mut found = values(record, slot)?;
     if found.len() > 1 {
-        return Err(Error::Benchmark(format!(
-            "{}: more than one {slot}",
-            record.id
-        )));
+        return Err(Refusal::MoreThanOne {
+            record: record.id.clone(),
+            slot,
+        }
+        .into());
     }
     Ok(found.pop())
 }
@@ -532,6 +680,7 @@ enum Slot {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::Error;
 
     /// The committed benchmark fixture.
     pub(crate) fn wine_benchmark() -> String {
@@ -596,11 +745,24 @@ pub(crate) mod tests {
         assert_eq!(q.expected_anchors.len(), 4);
     }
 
+    /// Why a reader refused the benchmark.
+    fn refusal(read: Result<Benchmark>) -> Refusal {
+        match read {
+            Err(Error::Benchmark(r)) => r,
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+    }
+
+    fn turtle_refused(ttl: &str) -> Refusal {
+        refusal(Benchmark::from_turtle(ttl))
+    }
+
     #[test]
     fn rejects_a_file_without_a_benchmark() {
-        let err = Benchmark::from_turtle("@prefix ex: <http://example.org/> . ex:a ex:b ex:c .")
-            .unwrap_err();
-        assert!(matches!(err, Error::Benchmark(_)), "{err}");
+        assert_eq!(
+            turtle_refused("@prefix ex: <http://example.org/> . ex:a ex:b ex:c ."),
+            Refusal::NoBenchmark
+        );
     }
 
     /// A one-benchmark file: the four pins, `extra` triples on the
@@ -644,43 +806,122 @@ pub(crate) mod tests {
                cqa:target_dataset \"d\" ; cqa:target_dataset_version \"1\" .",
             benchmark_with("", TWO_QUESTIONS)
         );
-        let err = Benchmark::from_turtle(&ttl).unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("found 2")),
-            "{err}"
-        );
+        assert_eq!(turtle_refused(&ttl), Refusal::ManyBenchmarks(2));
     }
 
     #[test]
     fn a_question_without_its_ground_truth_is_an_error_not_dropped() {
-        let err = Benchmark::from_turtle(&benchmark_with(
+        let refusal = turtle_refused(&benchmark_with(
             "",
             &format!(
                 "ex:q1 cqa:id \"q1\" ; cqa:question \"one?\" ; cqa:ground_truth \"One.\" ; {GRADABLE} .
                  ex:q2 cqa:id \"q2\" ; cqa:question \"two?\" ; {GRADABLE} ."
             ),
-        ))
-        .unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("q2") && m.contains("ground_truth")),
-            "{err}"
+        ));
+        assert_eq!(refusal, Refusal::missing("q2", "ground_truth"));
+    }
+
+    #[test]
+    fn a_question_with_two_values_at_a_single_slot_is_refused_naming_it() {
+        for (slot, second) in [
+            ("id", "cqa:id \"q1b\""),
+            ("question", "cqa:question \"uno?\""),
+            ("ground_truth", "cqa:ground_truth \"Uno.\""),
+        ] {
+            let questions = format!("{TWO_QUESTIONS}\nex:q1 {second} .");
+            let refusal = turtle_refused(&benchmark_with("", &questions));
+            // Which of q1's two ids comes first is the store's order.
+            assert!(
+                matches!(&refusal, Refusal::MoreThanOne { record, slot: s }
+                    if *s == slot && (slot == "id" || record == "q1")),
+                "{slot}: {refusal:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_question_without_a_check_to_grade_is_an_error() {
+        for (slot, dropped) in [
+            (
+                "answer_kind",
+                "cqa:answer_kind <https://w3id.org/cqa/AnswerKindEnum#lookup> ;",
+            ),
+            ("expected_anchors", "; cqa:expected_anchors ex:r1"),
+        ] {
+            let q2 = TWO_QUESTIONS.rfind(dropped).unwrap();
+            let questions = format!(
+                "{}{}",
+                &TWO_QUESTIONS[..q2],
+                &TWO_QUESTIONS[q2 + dropped.len()..]
+            );
+            let refusal = turtle_refused(&benchmark_with("", &questions));
+            assert_eq!(refusal, Refusal::missing("q2", slot), "{slot}");
+        }
+    }
+
+    #[test]
+    fn a_benchmark_with_two_values_at_a_pin_is_an_error() {
+        let refusal = turtle_refused(&benchmark_with("; cqa:target_dataset \"e\"", TWO_QUESTIONS));
+        assert_eq!(
+            refusal,
+            Refusal::MoreThanOne {
+                record: "b".into(),
+                slot: "target_dataset",
+            }
         );
     }
 
     #[test]
+    fn a_benchmark_without_a_pin_is_an_error_naming_it() {
+        let ttl = benchmark_with("", TWO_QUESTIONS).replacen("cqa:target_dataset \"d\" ;", "", 1);
+        assert_eq!(
+            turtle_refused(&ttl),
+            Refusal::missing("b", "target_dataset")
+        );
+    }
+
+    #[test]
+    fn a_question_without_an_id_is_an_error_naming_its_iri() {
+        let questions = TWO_QUESTIONS.replacen("ex:q1 cqa:id \"q1\" ;", "ex:q1", 1);
+        assert_eq!(
+            turtle_refused(&benchmark_with("", &questions)),
+            Refusal::missing("<http://example.org/q1>", "id")
+        );
+    }
+
+    #[test]
+    fn two_values_differing_only_in_language_name_no_one_slot() {
+        let questions = format!("{TWO_QUESTIONS}\nex:q1 cqa:question \"one?\"@en .");
+        let refusal = turtle_refused(&benchmark_with("", &questions));
+        assert_eq!(
+            refusal,
+            Refusal::MoreThanOne {
+                record: "q1".into(),
+                slot: "id, question or ground_truth",
+            }
+        );
+    }
+
+    #[test]
+    fn a_blank_node_benchmark_is_no_benchmark() {
+        let ttl = benchmark_with("", TWO_QUESTIONS).replacen(
+            "ex:b a cqa:Benchmark",
+            "[] a cqa:Benchmark",
+            1,
+        );
+        assert_eq!(turtle_refused(&ttl), Refusal::NoBenchmark);
+    }
+
+    #[test]
     fn two_questions_sharing_an_id_are_an_error() {
-        let err = Benchmark::from_turtle(&benchmark_with(
+        let refusal = turtle_refused(&benchmark_with(
             "",
             &format!(
                 "ex:q1 cqa:id \"q1\" ; cqa:question \"one?\" ; cqa:ground_truth \"One.\" ; {GRADABLE} .
                  ex:q2 cqa:id \"q1\" ; cqa:question \"two?\" ; cqa:ground_truth \"Two.\" ; {GRADABLE} ."
             ),
-        ))
-        .unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("q1") && m.contains("more than one")),
-            "{err}"
-        );
+        ));
+        assert_eq!(refusal, Refusal::DuplicateQuestion("q1".into()));
     }
 
     #[test]
@@ -691,10 +932,9 @@ pub(crate) mod tests {
             "{TWO_QUESTIONS}
              ex:q2 cqa:answer_kind <{CQA}AnswerKindEnum#closed-world-negative> ."
         );
-        let err = Benchmark::from_turtle(&benchmark_with("", &questions)).unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("q2") && m.contains("unconnected_anchors")),
-            "{err}"
+        assert_eq!(
+            turtle_refused(&benchmark_with("", &questions)),
+            Refusal::NegativeWithoutUnconnectedAnchors("q2".into())
         );
     }
 
@@ -704,11 +944,12 @@ pub(crate) mod tests {
             "{TWO_QUESTIONS}
              ex:q2 cqa:answer_kind <https://example.org/AnswerKindEnum#lookup> ."
         );
-        let err = Benchmark::from_turtle(&benchmark_with("", &questions)).unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m)
-                if m.contains("q2") && m.contains("<https://example.org/AnswerKindEnum#lookup>")),
-            "{err}"
+        assert_eq!(
+            turtle_refused(&benchmark_with("", &questions)),
+            Refusal::UnknownAnswerKind {
+                question: "q2".into(),
+                kind: "https://example.org/AnswerKindEnum#lookup".into(),
+            }
         );
     }
 
@@ -747,10 +988,15 @@ pub(crate) mod tests {
     }
 
     /// Why `data` is refused.
-    fn refused(data: &str) -> String {
-        match from_yaml_text(data) {
-            Err(Error::Benchmark(m)) => m,
-            other => panic!("expected a benchmark error, got {other:?}"),
+    fn refused(data: &str) -> Refusal {
+        refusal(from_yaml_text(data))
+    }
+
+    /// What the load of `data` read past.
+    fn unread(data: &str) -> Vec<Unread> {
+        match refused(data) {
+            Refusal::PartlyRead(unread) => unread,
+            other => panic!("expected a partial read, got {other:?}"),
         }
     }
 
@@ -803,68 +1049,74 @@ competency_question_answers:
     #[test]
     fn a_yaml_load_that_fails_names_the_file() {
         let missing = fixture_path("no-such-benchmark.yaml");
-        let err = Benchmark::from_yaml(fixture_path("cqa.yaml"), &missing).unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("no-such-benchmark.yaml")),
-            "{err}"
-        );
+        match refusal(Benchmark::from_yaml(fixture_path("cqa.yaml"), &missing)) {
+            Refusal::Load { error, .. } => {
+                assert!(error.contains("no-such-benchmark.yaml"), "{error}")
+            }
+            other => panic!("expected a load refusal, got {other:?}"),
+        }
     }
 
     #[test]
     fn a_load_warning_is_refused() {
         let mut load = loaded(&yaml_benchmark_with(YAML_QUESTION));
         load.warnings.push("something was skipped".into());
-        let err = Benchmark::from_loaded(&load).unwrap_err();
-        assert!(
-            matches!(&err, Error::Benchmark(m) if m.contains("something was skipped")),
-            "{err}"
+        assert_eq!(
+            refusal(Benchmark::from_loaded(&load)),
+            Refusal::PartlyRead(vec![Unread::Warning("something was skipped".into())])
         );
     }
 
     #[test]
     fn a_misspelled_slot_is_refused_not_dropped() {
-        let m = refused(&yaml_benchmark_with(&format!(
+        let unread = unread(&yaml_benchmark_with(&format!(
             "{YAML_QUESTION}    expected_citation: [r1]\n"
         )));
-        assert!(m.contains("q1") && m.contains("`expected_citation`"), "{m}");
-    }
-
-    #[test]
-    fn two_yaml_questions_sharing_an_id_are_refused() {
-        let m = refused(&yaml_benchmark_with(&format!(
-            "{YAML_QUESTION}{YAML_QUESTION}"
-        )));
-        assert!(
-            m.contains("q1") && m.contains("more than one record"),
-            "{m}"
+        assert_eq!(
+            unread,
+            [Unread::UndeclaredField {
+                record: "q1".into(),
+                field: "expected_citation".into(),
+                class: "CompetencyQuestionAnswer".into(),
+            }]
         );
     }
 
     #[test]
+    fn two_yaml_questions_sharing_an_id_are_refused() {
+        let unread = unread(&yaml_benchmark_with(&format!(
+            "{YAML_QUESTION}{YAML_QUESTION}"
+        )));
+        assert_eq!(unread, [Unread::DuplicateId("q1".into())]);
+    }
+
+    #[test]
     fn an_anchor_with_no_base_to_expand_against_is_refused() {
-        let m = refused(&yaml_question_with(
+        let unread = unread(&yaml_question_with(
             "target_schema: https://example.org/s/",
             "target_schema: [https://example.org/s/]",
         ));
         assert!(
-            m.contains("q1") && m.contains("`expected_anchors`") && m.contains("did not expand"),
-            "{m}"
+            matches!(&unread[..], [Unread::Unexpanded { record, slot, base_slot }]
+                if record == "q1" && slot == "expected_anchors" && base_slot == "target_schema"),
+            "{unread:?}"
         );
     }
 
     #[test]
     fn a_collection_entry_that_reads_as_no_question_is_refused() {
-        let m = refused(&yaml_benchmark_with(&format!("{YAML_QUESTION}  - ~\n")));
-        assert!(m.contains("`competency_question_answers`: an entry"), "{m}");
+        let unread = unread(&yaml_benchmark_with(&format!("{YAML_QUESTION}  - ~\n")));
+        assert!(
+            matches!(&unread[..], [Unread::UnusableEntry { slot, key: None, .. }]
+                if slot == "competency_question_answers"),
+            "{unread:?}"
+        );
     }
 
     #[test]
     fn a_listed_id_that_names_no_question_is_refused() {
-        let m = refused(&yaml_benchmark_with(&format!("{YAML_QUESTION}  - q2\n")));
-        assert!(
-            m.contains("q2") && m.contains("not a CompetencyQuestionAnswer"),
-            "{m}"
-        );
+        let refusal = refused(&yaml_benchmark_with(&format!("{YAML_QUESTION}  - q2\n")));
+        assert_eq!(refusal, Refusal::NotAQuestion("q2".into()));
     }
 
     #[test]
@@ -875,71 +1127,126 @@ competency_question_answers:
 
     #[test]
     fn a_benchmark_sharing_an_id_with_a_question_is_refused() {
-        let m = refused(&yaml_question_with("id: b\n", "id: q1\n"));
-        assert!(m.contains("q1") && m.contains("share this id"), "{m}");
+        let unread = unread(&yaml_question_with("id: b\n", "id: q1\n"));
+        assert!(
+            unread.contains(&Unread::RootCollision("q1".into())),
+            "{unread:?}"
+        );
     }
 
     #[test]
     fn a_benchmark_without_an_id_is_refused() {
-        let m = refused(&yaml_question_with("id: b\n", ""));
-        assert!(m.contains("no Benchmark record"), "{m}");
+        let refusal = refused(&yaml_question_with("id: b\n", ""));
+        assert_eq!(refusal, Refusal::NoBenchmark);
     }
 
     #[test]
     fn a_yaml_benchmark_with_no_questions_is_refused() {
-        let m = refused(&yaml_benchmark_with("  []\n"));
-        assert!(m.contains("holds no competency question answers"), "{m}");
+        let refusal = refused(&yaml_benchmark_with("  []\n"));
+        assert_eq!(
+            refusal,
+            Refusal::NoQuestions("https://w3id.org/cqa/b".into())
+        );
     }
 
     #[test]
     fn an_answer_kind_name_outside_cqas_enum_is_refused_naming_it() {
-        let m = refused(&yaml_question_with("[lookup]", "[look-up]"));
-        assert!(m.contains("q1") && m.contains("`look-up`"), "{m}");
+        let refusal = refused(&yaml_question_with("[lookup]", "[look-up]"));
+        assert_eq!(
+            refusal,
+            Refusal::UnknownAnswerKind {
+                question: "q1".into(),
+                kind: "look-up".into(),
+            }
+        );
     }
 
     #[test]
     fn a_yaml_question_without_its_ground_truth_is_refused() {
-        let m = refused(&yaml_question_with("    ground_truth: One.\n", ""));
-        assert!(m.contains("q1") && m.contains("no ground_truth"), "{m}");
+        let refusal = refused(&yaml_question_with("    ground_truth: One.\n", ""));
+        assert_eq!(refusal, Refusal::missing("q1", "ground_truth"));
     }
 
     #[test]
     fn a_question_with_two_ground_truths_is_refused() {
-        let m = refused(&yaml_question_with(
+        let refusal = refused(&yaml_question_with(
             "ground_truth: One.",
             "ground_truth: [One., Two.]",
         ));
-        assert!(
-            m.contains("q1") && m.contains("more than one ground_truth"),
-            "{m}"
+        assert_eq!(
+            refusal,
+            Refusal::MoreThanOne {
+                record: "q1".into(),
+                slot: "ground_truth",
+            }
         );
     }
 
     #[test]
-    fn a_number_where_text_belongs_is_refused() {
-        let m = refused(&yaml_question_with("question: one?", "question: 1"));
-        assert!(
-            m.contains("q1") && m.contains("`question`") && m.contains("quote"),
-            "{m}"
-        );
+    fn a_number_or_boolean_where_text_belongs_is_refused() {
+        for value in ["1", "true"] {
+            let refusal = refused(&yaml_question_with(
+                "question: one?",
+                &format!("question: {value}"),
+            ));
+            assert_eq!(
+                refusal,
+                Refusal::Unquoted {
+                    record: "q1".into(),
+                    slot: "question",
+                    value: value.into(),
+                },
+                "{value}"
+            );
+        }
     }
 
     #[test]
     fn a_mapping_where_text_belongs_is_refused() {
-        let m = refused(&yaml_question_with(
+        let refusal = refused(&yaml_question_with(
             "question: one?",
             "question: {text: one?}",
         ));
         assert!(
-            m.contains("q1") && m.contains("`question`") && m.contains("not text"),
-            "{m}"
+            matches!(&refusal, Refusal::NotText { record, slot: "question", .. } if record == "q1"),
+            "{refusal:?}"
         );
     }
 
     #[test]
     fn a_yaml_benchmark_without_a_pin_is_refused() {
-        let m = refused(&yaml_question_with("target_dataset: d\n", ""));
-        assert!(m.contains("no target_dataset"), "{m}");
+        let refusal = refused(&yaml_question_with("target_dataset: d\n", ""));
+        assert_eq!(refusal, Refusal::missing("b", "target_dataset"));
+    }
+
+    #[test]
+    fn a_failed_load_gives_its_warnings_with_its_error() {
+        let refusal = Refusal::Load {
+            error: "no such file".into(),
+            warnings: vec!["an import was skipped".into()],
+        }
+        .to_string();
+        assert!(
+            refusal.contains("no such file") && refusal.contains("an import was skipped"),
+            "{refusal}"
+        );
+    }
+
+    #[test]
+    fn a_partial_read_names_every_part_it_read_past() {
+        let refusal = Refusal::PartlyRead(vec![
+            Unread::DuplicateId("q1".into()),
+            Unread::UnusableEntry {
+                slot: "competency_question_answers".into(),
+                key: Some("q2".into()),
+                reason: "is not a mapping".into(),
+            },
+        ])
+        .to_string();
+        assert!(
+            refusal.contains("q1") && refusal.contains("`q2`"),
+            "{refusal}"
+        );
     }
 
     #[test]

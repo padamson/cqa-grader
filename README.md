@@ -73,6 +73,17 @@ wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1, req
 6 questions: 5 passed, 1 unanswered, 0 wrong
 ```
 
+`--benchmark` takes the published Turtle, or, with `--cqa-schema`, the
+LinkML YAML the Turtle is generated from. The schema is cqa's, as one file
+with its imports merged (panschema's `linkml_schema` output). A key the
+load reads only in part (a misspelled slot, say, or an anchor that does not
+expand) is refused with exit code 2, not graded in part. `baseline` takes
+both flags too.
+
+```bash
+cqa-grader grade --benchmark wine-benchmark.yaml --cqa-schema cqa.yaml --trace trace.json
+```
+
 Run the naive baseline retriever over a graph, so a benchmark's CI has a
 student to grade:
 

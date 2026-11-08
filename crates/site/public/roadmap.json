@@ -3,7 +3,7 @@
   "next_milestone": "0.2.0",
   "themes": {
     "0.1.0": "A pass means the question was answered",
-    "0.2.0": "The key read through panschema's model"
+    "0.2.0": "A trace names its schema"
   },
   "items": [
     {
@@ -133,6 +133,23 @@
       ]
     },
     {
+      "id": "roadmap-now-model",
+      "title": "Read the answer key from its source",
+      "blurb": "The key is read from the benchmark's YAML, through panschema's model of the cqa schema, instead of from its Turtle rendering.",
+      "horizon": "now",
+      "status": "done",
+      "acceptance": [
+        {
+          "criterion": "The YAML and Turtle readers give the same benchmark for wine",
+          "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
+        },
+        {
+          "criterion": "grade reads a benchmark given as YAML, with cqa's schema, and reports as it does from the Turtle",
+          "test": "tests/cli.rs::grading_from_the_yaml_matches_grading_from_the_turtle"
+        }
+      ]
+    },
+    {
       "id": "roadmap-now-budget",
       "title": "A retrieval budget",
       "blurb": "Anchors must be reached within a cap on how many records are retrieved, so retrieving the whole graph stops passing. Waits on cqa v0.2 deciding whether the cap is the benchmark's to state.",
@@ -177,22 +194,6 @@
         {
           "criterion": "An attempt that reaches any one of a question's evidence sets reaches its anchors",
           "test": "src/grade.rs::any_one_evidence_set_satisfies_the_anchors"
-        }
-      ]
-    },
-    {
-      "id": "roadmap-next-model",
-      "title": "Read the answer key from its source",
-      "blurb": "The key is read from the benchmark's YAML, through panschema's model of the cqa schema, instead of from its Turtle rendering.",
-      "horizon": "next",
-      "acceptance": [
-        {
-          "criterion": "The YAML and Turtle readers give the same benchmark for wine",
-          "test": "src/benchmark.rs::yaml_and_turtle_readers_agree"
-        },
-        {
-          "criterion": "grade reads a benchmark given as YAML, with cqa's schema, and reports as it does from the Turtle",
-          "test": "tests/cli.rs::grading_from_the_yaml_matches_grading_from_the_turtle"
         }
       ]
     },

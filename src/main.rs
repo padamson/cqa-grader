@@ -20,9 +20,8 @@ enum Command {
     /// `--require` asks of it.
     #[command(group(ArgGroup::new("system").required(true).args(["trace", "baseline"])))]
     Grade {
-        /// The benchmark's published Turtle artifact.
-        #[arg(long)]
-        benchmark: PathBuf,
+        #[command(flatten)]
+        benchmark: Key,
         /// The trace to grade (JSON, see `trace-schema`).
         #[arg(long, conflicts_with = "Retrieval")]
         trace: Option<PathBuf>,
@@ -39,19 +38,32 @@ enum Command {
         save_trace: Option<PathBuf>,
     },
     /// Run the naive baseline retriever over a graph and write its trace.
+    /// It reads only the benchmark's question text.
     #[command(mut_arg("graph", |a| a.required(true)))]
     Baseline {
         #[command(flatten)]
         retrieval: Retrieval,
-        /// The benchmark whose questions to attempt. Only question text is read.
-        #[arg(long)]
-        benchmark: PathBuf,
+        #[command(flatten)]
+        benchmark: Key,
         /// Where to write the trace. Stdout if omitted.
         #[arg(long)]
         output: Option<PathBuf>,
     },
     /// Print the JSON Schema for the trace format.
     TraceSchema,
+}
+
+/// The benchmark, the answer key a trace is graded against.
+#[derive(Args)]
+struct Key {
+    /// The benchmark: its published Turtle artifact, or with
+    /// `--cqa-schema` its LinkML YAML source.
+    #[arg(long)]
+    benchmark: PathBuf,
+    /// cqa's schema as one LinkML file with its imports merged, to read a
+    /// YAML `--benchmark` against.
+    #[arg(long)]
+    cqa_schema: Option<PathBuf>,
 }
 
 /// What the baseline runs over. Each subcommand that takes it says
@@ -119,7 +131,7 @@ fn run() -> Result<ExitCode> {
             save_trace,
             ..
         } => {
-            let b = read_benchmark(&benchmark)?;
+            let b = benchmark.read()?;
             let r = match trace {
                 Some(path) => {
                     let t = Trace::from_path(&path)
@@ -145,7 +157,7 @@ fn run() -> Result<ExitCode> {
             benchmark,
             output,
         } => {
-            let b = read_benchmark(&benchmark)?;
+            let b = benchmark.read()?;
             let (trace, _) = retrieval.trace(&b)?;
             match output {
                 Some(path) => write_trace(&trace, &path)?,
@@ -219,8 +231,31 @@ impl Judge {
     }
 }
 
-fn read_benchmark(path: &Path) -> Result<Benchmark> {
-    Benchmark::from_path(path).with_context(|| format!("reading benchmark {}", path.display()))
+impl Key {
+    /// The benchmark: its LinkML source read against `--cqa-schema` where
+    /// one is given, its Turtle otherwise.
+    fn read(&self) -> Result<Benchmark> {
+        let path = &self.benchmark;
+        let read = match &self.cqa_schema {
+            Some(_) if has_extension(path, &["ttl"]) => bail!(
+                "{} is Turtle, which is read without --cqa-schema",
+                path.display()
+            ),
+            Some(schema) => Benchmark::from_yaml(schema, path),
+            None if has_extension(path, &["yaml", "yml"]) => bail!(
+                "{} is YAML, which is read against cqa's schema; give it with --cqa-schema",
+                path.display()
+            ),
+            None => Benchmark::from_path(path),
+        };
+        read.with_context(|| format!("reading benchmark {}", path.display()))
+    }
+}
+
+/// Whether `path` ends in one of `extensions`, in any case.
+fn has_extension(path: &Path, extensions: &[&str]) -> bool {
+    path.extension()
+        .is_some_and(|e| extensions.iter().any(|x| e.eq_ignore_ascii_case(x)))
 }
 
 fn write_trace(trace: &Trace, path: &Path) -> Result<()> {
@@ -267,6 +302,16 @@ mod tests {
         let stated = named("worked-example", "0.2.1");
         for given in [named("a-fork", "0.2.1"), named("worked-example", "0.2.2")] {
             assert!(over(stated.clone(), given.clone()).is_err(), "{given:?}");
+        }
+    }
+
+    #[test]
+    fn an_extension_matches_in_any_case() {
+        for path in ["b.yaml", "b.yml", "b.YAML", "b.Yml"] {
+            assert!(has_extension(Path::new(path), &["yaml", "yml"]), "{path}");
+        }
+        for path in ["b.ttl", "b", "yaml", "b.yaml.ttl"] {
+            assert!(!has_extension(Path::new(path), &["yaml", "yml"]), "{path}");
         }
     }
 

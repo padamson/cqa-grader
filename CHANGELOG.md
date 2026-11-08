@@ -15,7 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   YAML read against cqa's schema through `panschema-model`, and gives the
   same `Benchmark` as the Turtle for wine. A load that warns, leaves an
   anchor unexpanded, or skips a field or entry it could not place is
-  refused rather than graded in part.
+  refused rather than graded in part. `grade` and `baseline` read it with
+  `--benchmark B.yaml --cqa-schema S`. Without `--cqa-schema` they read
+  Turtle, and they refuse a `.yaml` or `.yml` benchmark given without it.
+- A refused benchmark is `Error::Benchmark(Refusal)`, with a variant for
+  each reason and, for a partial LinkML load, an `Unread` for each part
+  the load read past.
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
 - `grade`: four base checks per question (`attempted`, `anchors-reached`,

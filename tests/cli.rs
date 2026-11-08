@@ -94,6 +94,94 @@ fn grading_the_baseline_in_one_run_matches_baseline_then_grade() {
 }
 
 #[test]
+fn grading_from_the_yaml_matches_grading_from_the_turtle() {
+    // The baseline's trace, so the reports hold both a pass and an
+    // unanswered negative.
+    let dir = tempdir();
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let mut from_yaml = cli();
+    from_yaml
+        .arg("grade")
+        .args(wine_yaml_args())
+        .args(["--trace", trace.to_str().unwrap()]);
+    assert_eq!(report_json(&mut from_yaml), grade_json(&trace, &[]));
+}
+
+#[test]
+fn the_baseline_attempts_a_yaml_benchmark_as_it_does_the_turtle() {
+    let dir = tempdir();
+    let expected = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let mut from_yaml = cli();
+    from_yaml
+        .args(["baseline", "--graph", &fixture("wine.ttl")])
+        .args(wine_yaml_args());
+    let written = traced(&mut from_yaml, dir.join("from-yaml.json"));
+    assert_eq!(
+        Trace::from_path(&written).unwrap(),
+        Trace::from_path(&expected).unwrap()
+    );
+}
+
+#[test]
+fn a_yaml_benchmark_without_its_schema_is_a_usage_error() {
+    // Without the check it is parsed as Turtle, and the error is a Turtle
+    // syntax error that never mentions the flag.
+    cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.yaml")])
+        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--cqa-schema"));
+}
+
+#[test]
+fn a_turtle_benchmark_with_a_schema_is_a_usage_error() {
+    // Without the check the YAML loader parses the Turtle, and the error
+    // is a YAML syntax error that never mentions the flag.
+    cli()
+        .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
+        .args(["--cqa-schema", &fixture("cqa.yaml")])
+        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--cqa-schema"));
+}
+
+#[test]
+fn a_partial_read_refusal_is_printed_once() {
+    let dir = tempdir();
+    let yaml = common::fixture_text("wine-benchmark.yaml");
+    assert!(yaml.contains("    expected_anchors:"), "{yaml}");
+    let misspelled = dir.join("misspelled.yaml");
+    std::fs::write(
+        &misspelled,
+        yaml.replacen("    expected_anchors:", "    expected_anchor:", 1),
+    )
+    .unwrap();
+    let out = cli()
+        .args(["grade", "--benchmark", misspelled.to_str().unwrap()])
+        .args(["--cqa-schema", &fixture("cqa.yaml")])
+        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    // A refusal that was also the error's source printed twice.
+    assert_eq!(stderr.matches("`expected_anchor`").count(), 1, "{stderr}");
+}
+
+/// `--benchmark` and `--cqa-schema` naming wine's benchmark by its LinkML
+/// source.
+fn wine_yaml_args() -> [String; 4] {
+    [
+        "--benchmark".into(),
+        fixture("wine-benchmark.yaml"),
+        "--cqa-schema".into(),
+        fixture("cqa.yaml"),
+    ]
+}
+
+#[test]
 fn save_trace_writes_the_trace_baseline_would() {
     let dir = tempdir();
     let expected = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
