@@ -7,7 +7,7 @@ public_url = "/"
 [tools]
 # Pin the Tailwind v4 standalone binary (Trunk defaults to a v3 release,
 # which cannot parse the v4 `@import "tailwindcss"` / `@theme` input.css).
-tailwindcss = "4.3.0"
+tailwindcss = "4.3.5"
 
 [watch]
 # `copy-dir` re-copies public/receipts and public/architecture into dist on
