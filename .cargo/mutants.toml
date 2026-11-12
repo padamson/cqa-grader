@@ -1,0 +1,5 @@
+# cargo-mutants reads this file; a root `.mutants.toml` is ignored.
+# https://mutants.rs/
+
+# The whole suite, `tests/` included, under the runner CI uses.
+test_tool = "nextest"

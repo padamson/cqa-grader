@@ -659,8 +659,7 @@ mod tests {
         let dropped = "https://w3id.org/wine-linkml/grilled-meat".to_string();
         assert!(a.retrieved.remove(&dropped));
         let report = graded(&b, vec![a]);
-        let r = &report.results[2];
-        assert_eq!(r.question, "cq-04");
+        let r = result(&report, "cq-04");
         assert_eq!(r.outcome, Outcome::Wrong);
         let c = check(r, "anchors-reached");
         assert!(!c.passed);
@@ -675,7 +674,7 @@ mod tests {
         let mut a = perfect(q);
         a.cited.insert("https://w3id.org/wine-linkml/merlot".into());
         let report = graded(&b, vec![a]);
-        let c = check(&report.results[2], "citations-grounded");
+        let c = check(result(&report, "cq-04"), "citations-grounded");
         assert!(!c.passed);
         assert_eq!(c.missing, vec!["https://w3id.org/wine-linkml/merlot"]);
     }
@@ -687,7 +686,7 @@ mod tests {
         let mut a = perfect(q);
         a.cited.clear();
         let report = graded(&b, vec![a]);
-        let r = &report.results[2];
+        let r = result(&report, "cq-04");
         assert!(check(r, "anchors-reached").passed);
         let c = check(r, "attribution");
         assert!(!c.passed);
@@ -707,8 +706,9 @@ mod tests {
         assert!(a.cited.is_empty());
         let r = grade_question(&q, Some(&a));
         let c = check(&r, "attribution");
-        assert!(!c.passed);
-        assert!(c.detail.contains("must cite"));
+        assert!(!c.passed, "{c:?}");
+        // Nothing is missing, so it failed for citing nothing.
+        assert!(c.missing.is_empty(), "{c:?}");
     }
 
     #[test]
@@ -718,7 +718,7 @@ mod tests {
         let mut a = perfect(q);
         a.cited.clear();
         let report = graded(&b, vec![a]);
-        let r = &report.results[3];
+        let r = result(&report, "cq-05");
         assert!(check(r, "synthesis").passed);
         let c = check(r, "citations-rest");
         assert!(!c.passed);
@@ -733,11 +733,12 @@ mod tests {
         let mut a = perfect(q);
         a.asserts_absence = false;
         let report = graded(&b, vec![a]);
-        let r = &report.results[1];
+        let r = result(&report, "cq-03");
         assert!(check(r, "anchors-reached").passed);
         let c = check(r, "closed-world-negative");
-        assert!(!c.passed);
-        assert!(c.detail.contains("does not assert absence"));
+        assert!(!c.passed, "{c:?}");
+        // Nothing is missing, so it failed for the absent assertion.
+        assert!(c.missing.is_empty(), "{c:?}");
     }
 
     #[test]
@@ -758,7 +759,7 @@ mod tests {
         let mut a = Attempt::empty(&q.id);
         a.asserts_absence = true;
         let report = graded(&b, vec![a]);
-        let c = check(&report.results[1], "closed-world-negative");
+        let c = check(result(&report, "cq-03"), "closed-world-negative");
         assert!(!c.passed);
         assert_eq!(c.missing.len(), 2);
     }
@@ -771,7 +772,7 @@ mod tests {
         a.cited
             .remove("https://w3id.org/wine-linkml/va-napa-zin-2017");
         let report = graded(&b, vec![a]);
-        let r = &report.results[5];
+        let r = result(&report, "cq-07");
         assert!(check(r, "comparison").passed);
         assert!(!check(r, "attribution").passed);
         assert_eq!(r.outcome, Outcome::Wrong);
@@ -787,7 +788,7 @@ mod tests {
                 .insert(format!("https://w3id.org/wine-linkml/noise-{i}"));
         }
         let report = graded(&b, vec![a]);
-        let r = &report.results[0];
+        let r = result(&report, "cq-02");
         assert_eq!(r.outcome, Outcome::Passed);
         assert_eq!(r.recall, 1.0);
         assert!((r.precision - 0.25).abs() < 1e-9);

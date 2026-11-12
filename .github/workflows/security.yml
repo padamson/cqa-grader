@@ -133,8 +133,7 @@ jobs:
         with:
           tool: cargo-mutants
 
-      # If runs are too slow, scope mutation testing via `.mutants.toml`
-      # at the repo root. See `.mutants.toml.example` in the template.
+      # `.cargo/mutants.toml` sets the runner (nextest).
       - name: Run mutation testing
         run: cargo mutants
 

@@ -21,24 +21,13 @@
 # mutation to just the lines in the supplied diff — typically seconds
 # to minutes for a normal commit.
 #
-# Prerequisites: `cargo install cargo-mutants` (once per machine).
+# Prerequisites: `cargo install cargo-mutants cargo-nextest` (once per
+# machine); `.cargo/mutants.toml` runs the suite under nextest.
 #
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
-
-# --- Project-specific pre-setup ----------------------------------------
-# cargo-mutants copies the source tree to a tempdir before building.
-# Anything the build expects but that isn't checked in (wasm-pack
-# artifacts referenced via include_str!/include_bytes!, generated FFI
-# bindings, etc.) won't follow. Mutation testing doesn't exercise those
-# bytes at runtime, so empty placeholders are enough.
-#
-# Example (delete or adapt for your project):
-#   mkdir -p crates/foo-viz/pkg
-#   touch crates/foo-viz/pkg/foo_viz.js crates/foo-viz/pkg/foo_viz_bg.wasm
-# -----------------------------------------------------------------------
 
 # Resolve the base ref: first non-dash positional arg, defaulting to
 # HEAD~1. Anything starting with `-` is treated as a cargo-mutants arg.

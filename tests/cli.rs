@@ -398,7 +398,8 @@ fn a_wrong_answer_fails_the_no_wrong_answers_requirement() {
                 .find(|a| a.question == "cq-04")
                 .unwrap(),
         );
-        let path = tempdir().join("trace.json");
+        let dir = tempdir();
+        let path = dir.join("trace.json");
         trace.write(&path).unwrap();
         let (code, json) = grade_json(&path, &["--require", "no-wrong-answers"]);
         assert_eq!(code, Some(1), "{case}: {json}");
@@ -485,11 +486,8 @@ fn perfect_trace() -> Trace {
 
 #[test]
 fn a_failing_trace_exits_one() {
-    let trace = empty_trace(
-        &tempdir(),
-        "wine-benchmark",
-        wine_benchmark().target_graph(),
-    );
+    let dir = tempdir();
+    let trace = empty_trace(&dir, "wine-benchmark", wine_benchmark().target_graph());
     cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--trace", trace.to_str().unwrap(), "--format", "json"])
@@ -500,7 +498,8 @@ fn a_failing_trace_exits_one() {
 
 #[test]
 fn a_trace_for_another_benchmark_is_a_usage_error() {
-    let trace = empty_trace(&tempdir(), "other", wine_benchmark().target_graph());
+    let dir = tempdir();
+    let trace = empty_trace(&dir, "other", wine_benchmark().target_graph());
     cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
         .args(["--trace", trace.to_str().unwrap()])
@@ -525,7 +524,8 @@ fn a_trace_for_another_dataset_or_version_is_a_usage_error() {
         ..target
     };
     for (graph, moved) in [(elsewhere, "a-fork"), (older, "0.0.0-older")] {
-        let trace = empty_trace(&tempdir(), "wine-benchmark", graph);
+        let dir = tempdir();
+        let trace = empty_trace(&dir, "wine-benchmark", graph);
         let out = cli()
             .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
             .args(["--trace", trace.to_str().unwrap()])
@@ -714,7 +714,8 @@ fn ntriples<'a>(triples: impl IntoIterator<Item = &'a Triple>) -> String {
 fn an_unreadable_trace_names_its_cause_once() {
     // The cause is the error's source, so a chain printer shows it once;
     // repeating it in the message would show it twice.
-    let trace = tempdir().join("trace.json");
+    let dir = tempdir();
+    let trace = dir.join("trace.json");
     std::fs::write(&trace, "{}").unwrap();
     let out = cli()
         .args(["grade", "--benchmark", &fixture("wine-benchmark.ttl")])
@@ -736,10 +737,12 @@ fn trace_schema_prints_json_schema() {
         .stdout(predicate::str::contains("\"trace_format\""));
 }
 
-/// A fresh directory for one test. The counter keeps two tests in one
-/// process apart (as under `cargo test`, which cargo-mutants runs); the
-/// clock's resolution on macOS is a microsecond, which they can share.
-fn tempdir() -> PathBuf {
+/// A fresh directory for one test, removed when the guard drops, whether
+/// the test passed or panicked. The counter keeps two tests in one process
+/// apart (as under `cargo test`, which runs a binary's tests in one
+/// process); the clock's resolution on macOS is a microsecond, which they
+/// can share.
+fn tempdir() -> TestDir {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
         "cqa-grader-test-{}-{}-{}",
@@ -751,5 +754,23 @@ fn tempdir() -> PathBuf {
             .as_nanos()
     ));
     std::fs::create_dir_all(&dir).unwrap();
-    dir
+    TestDir(dir)
+}
+
+/// Bind it to a name: a temporary guard drops, and removes the directory,
+/// at the end of the statement that made it.
+struct TestDir(PathBuf);
+
+impl std::ops::Deref for TestDir {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
