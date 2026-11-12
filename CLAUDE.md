@@ -70,12 +70,7 @@ cargo audit              # security scan
 cargo deny check         # license/dependency check
 cargo vet                # supply chain review
 cargo run -- trace-schema > schemas/trace.schema.json   # after changing src/trace.rs
-./scripts/ci-watch.sh    # stream CI for HEAD (or a SHA) until every run finishes
 ```
-
-Watch CI with `scripts/ci-watch.sh`, not an inline `gh` loop: the
-sandbox exclusion matches the script, and a `gh` call inside a loop runs
-sandboxed and fails.
 
 ## Sandbox
 
