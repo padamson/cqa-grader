@@ -191,28 +191,53 @@ impl Criterion {
     }
 }
 
-/// Whether `source` declares an active test named `name`: a `fn name(`
-/// line, not commented out, whose attributes include a test attribute
-/// and no `#[ignore`.
+/// Whether `source` declares an active test named `name`: a function, at
+/// the top level or in an inline `mod`, with an attribute whose path is
+/// `test` or ends in `::test`, and none that ignores it, directly or
+/// through `cfg_attr`. Panics if `source` does not parse, so a file syn
+/// cannot read is not reported as a missing test.
 #[cfg(test)]
 fn has_active_test(source: &str, name: &str) -> bool {
-    let lines: Vec<&str> = source.lines().map(str::trim).collect();
-    let declares = [format!("fn {name}("), format!("async fn {name}(")];
-    lines.iter().enumerate().any(|(i, line)| {
-        if !declares.iter().any(|d| line.starts_with(d.as_str())) {
+    use syn::{Attribute, Item, Meta, Token, parse::ParseStream};
+
+    fn is_test(attr: &Attribute) -> bool {
+        attr.path()
+            .segments
+            .last()
+            .is_some_and(|s| s.ident == "test")
+    }
+    fn is_ignore(attr: &Attribute) -> bool {
+        if attr.path().is_ident("ignore") {
+            return true;
+        }
+        if !attr.path().is_ident("cfg_attr") {
             return false;
         }
-        let attrs: Vec<&&str> = lines[..i]
-            .iter()
-            .rev()
-            .take_while(|l| l.starts_with("#[") || l.starts_with("//"))
-            .filter(|l| l.starts_with("#["))
-            .collect();
-        attrs
-            .iter()
-            .any(|a| a.starts_with("#[test]") || a.contains("::test"))
-            && !attrs.iter().any(|a| a.starts_with("#[ignore"))
-    })
+        // `cfg_attr(predicate, attr, ...)`: an attribute after the predicate.
+        let mut ignored = false;
+        let _ = attr.parse_args_with(|input: ParseStream| {
+            input.parse::<Meta>()?;
+            while input.parse::<Option<Token![,]>>()?.is_some() && !input.is_empty() {
+                ignored |= input.parse::<Meta>()?.path().is_ident("ignore");
+            }
+            Ok(())
+        });
+        ignored
+    }
+    fn declares(items: &[Item], name: &str) -> bool {
+        items.iter().any(|item| match item {
+            Item::Fn(f) => {
+                f.sig.ident == name && f.attrs.iter().any(is_test) && !f.attrs.iter().any(is_ignore)
+            }
+            Item::Mod(m) => m
+                .content
+                .as_ref()
+                .is_some_and(|(_, items)| declares(items, name)),
+            _ => false,
+        })
+    }
+    let file = syn::parse_file(source).unwrap_or_else(|e| panic!("does not parse: {e}"));
+    declares(&file.items, name)
 }
 
 #[cfg(test)]
@@ -361,6 +386,59 @@ mod tests {
     }
 
     #[test]
+    fn a_test_attribute_with_arguments_counts() {
+        let src = "#[tokio::test(start_paused = true)]\nasync fn proves_it() {}\n";
+        assert!(has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_lint_attribute_naming_a_test_lint_does_not_count() {
+        let src = "#[allow(clippy::tests_outside_test_module)]\nfn proves_it() {}\n";
+        assert!(!has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_conditionally_ignored_test_does_not_count() {
+        let src = "#[test]\n#[cfg_attr(not(feature = \"x\"), ignore)]\nfn proves_it() {}\n";
+        assert!(!has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_lint_attribute_naming_an_ignore_lint_does_not_hide_a_test() {
+        // A matcher that treats any `ignore` in an attribute as an ignore
+        // would drop this test.
+        let src = "#[test]\n#[allow(clippy::ignore_without_reason)]\nfn proves_it() {}\n";
+        assert!(has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_conditional_ignore_spanning_lines_does_not_count() {
+        // rustfmt wraps a long `cfg_attr` this way.
+        let src = "#[cfg_attr(\n    not(feature = \"browser\"),\n    ignore = \"needs a browser\"\n)]\n#[test]\nfn proves_it() {}\n";
+        assert!(!has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_test_attribute_spanning_lines_counts() {
+        let src = "#[tokio::test(\n    start_paused = true\n)]\nasync fn proves_it() {}\n";
+        assert!(has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_conditional_lint_naming_an_ignore_lint_does_not_hide_a_test() {
+        // An `ignore` inside a lint's name is not the word `ignore`.
+        let src =
+            "#[test]\n#[cfg_attr(test, allow(clippy::ignore_without_reason))]\nfn proves_it() {}\n";
+        assert!(has_active_test(src, "proves_it"));
+    }
+
+    #[test]
+    fn a_cfg_predicate_string_naming_ignore_does_not_hide_a_test() {
+        let src = "#[test]\n#[cfg_attr(feature = \"ignore-network\", allow(dead_code))]\nfn proves_it() {}\n";
+        assert!(has_active_test(src, "proves_it"));
+    }
+
+    #[test]
     fn a_helper_that_is_not_a_test_does_not_count() {
         let src = "#[test]\nfn other() {}\n\nfn proves_it() {}\n";
         assert!(!has_active_test(src, "proves_it"));
@@ -368,7 +446,7 @@ mod tests {
 
     #[test]
     fn a_commented_out_test_does_not_count() {
-        let src = "#[test]\n// fn proves_it() {}\n";
+        let src = "#[test]\nfn other() {}\n// fn proves_it() {}\n";
         assert!(!has_active_test(src, "proves_it"));
     }
 

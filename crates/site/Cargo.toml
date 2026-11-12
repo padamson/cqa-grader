@@ -31,3 +31,8 @@ wasm-bindgen-futures = "0.4"
 syntect = { version = "5.2", default-features = false, features = [
     "default-fancy",
 ] }
+
+# The roadmap test parses the repo's sources to check that each done item's
+# test exists and is not ignored. Already in the lock through leptos's macros.
+[dev-dependencies]
+syn = { version = "2", features = ["full"] }
