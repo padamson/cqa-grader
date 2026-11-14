@@ -7,7 +7,7 @@
 # from this pin (the padamson/asbuilt action reads it). A bump is this line,
 # the hook's `rev` in .pre-commit-config.yaml, the action's SHA in
 # .github/workflows/test.yml, and a re-survey, all in one commit.
-asbuilt = "0.3.0"
+asbuilt = "0.4.0"
 
 [output]
 path = "docs/architecture/model.c4"
