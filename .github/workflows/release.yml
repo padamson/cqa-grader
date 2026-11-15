@@ -199,6 +199,19 @@ jobs:
       - name: Build release binary
         run: cargo build --locked --release --target ${{ matrix.target }} --verbose
 
+      # build.rs prints the bare version only when it sees the release tag
+      # at HEAD, and no test can see what the shipped binary prints. Run on
+      # the one leg whose binary is native to its runner.
+      - name: Check the release binary reports the bare version
+        if: env.BINARY != '' && matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          got=$("target/${{ matrix.target }}/release/$BINARY" --version)
+          want="$BINARY ${GITHUB_REF_NAME#v}"
+          if [ "$got" != "$want" ]; then
+            echo "::error::--version printed '$got', expected '$want'"
+            exit 1
+          fi
+
       - name: Strip binary (Unix)
         if: env.BINARY != '' && runner.os != 'Windows'
         run: strip "target/${{ matrix.target }}/release/$BINARY"

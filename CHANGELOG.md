@@ -83,5 +83,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Test graphs generated from sibling checkouts through `panschema.toml`
   rather than vendored; CI clones the siblings and installs panschema
   from its main SHA.
+- `--version` names the commit a binary was built from, as
+  `0.1.0 (27f7f11)`. It prints the bare version when the build's checkout
+  has the tag `v0.1.0` at HEAD, or when there is no checkout (a crates.io
+  install).
 
 [Unreleased]: https://github.com/padamson/cqa-grader/commits/main

@@ -7,7 +7,7 @@ use cqa_grader::{Baseline, Benchmark, Graph, Report, Require, Trace, grade};
 
 /// Grade a system's retrieval trace against a cqa benchmark.
 #[derive(Parser)]
-#[command(name = "cqa-grader", version, about)]
+#[command(name = "cqa-grader", version = env!("CRATE_VERSION_WITH_BUILD"), about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
