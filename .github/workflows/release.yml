@@ -9,15 +9,18 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+# Read-only by default; each job that writes names what it writes.
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   build-release:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write       # create the GitHub Release and attach files
+      id-token: write       # provenance attestation (both lines)
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
