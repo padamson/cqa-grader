@@ -91,6 +91,7 @@ jobs:
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
+          fallback: none
 
       - name: Check formatting
         run: cargo fmt --manifest-path crates/site/Cargo.toml -- --check
@@ -142,6 +143,7 @@ jobs:
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
+          fallback: none
 
       - name: Build
         run: cargo build --verbose
