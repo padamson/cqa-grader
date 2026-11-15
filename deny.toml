@@ -1,5 +1,9 @@
 # cargo-deny configuration
-# Run: cargo deny check
+# Run: cargo deny --workspace check bans licenses sources
+# Advisories go through cargo-lockpatrol instead (`prek run cargo-lockpatrol
+# --all-files`), which reads [advisories] below for every tracked Cargo.lock.
+# Plain `cargo deny check` reads the root lockfile alone, so it disagrees
+# with the gate about an ignore entry that only crates/site's tree uses.
 # Docs: https://embarkstudios.github.io/cargo-deny/
 
 [graph]
@@ -10,15 +14,25 @@ no-default-features = false
 feature-depth = 1
 
 [advisories]
-# Source of truth for ignored RUSTSEC advisories. `cargo audit` has no
-# project-level config, so mirror this list as inline `--ignore` flags
-# in `.github/workflows/security.yml` and `.pre-commit-config.yaml`.
+# The only list of accepted RUSTSEC advisories. CI, the pre-commit hook
+# and the daily advisory monitor all run cargo-lockpatrol, which reads it
+# here, so nothing mirrors this list and nothing can drift from it.
 ignore = [
     # quick-xml 0.37 via oxigraph's RDF/XML reader and SPARQL results
     # parsers; this crate reads Turtle only. Retire when oxigraph moves
     # to quick-xml >= 0.41.
     "RUSTSEC-2026-0194",
     "RUSTSEC-2026-0195",
+    # crates/site only, and only at compile time; none reaches the WASM
+    # bundle. All three are unmaintained notices with no safe upgrade.
+    # paste: a proc-macro leptos uses. Retire when leptos drops it.
+    "RUSTSEC-2024-0436",
+    # bincode 1.3.3 and yaml-rust: syntect, a build-dependency that
+    # highlights code snippets in build.rs; bincode decodes its bundled
+    # syntax and theme dumps, and yaml-rust comes with its `yaml-load`
+    # feature, which build.rs never uses. Retire when syntect drops them.
+    "RUSTSEC-2025-0141",
+    "RUSTSEC-2024-0320",
 ]
 
 [licenses]

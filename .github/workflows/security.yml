@@ -17,28 +17,13 @@ permissions:
   contents: read
 
 jobs:
-  audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # stable
-        with:
-          toolchain: stable
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      # `cargo audit` only reads ~/.cargo/audit.toml — there is no
-      # project-level config. For unfixable transitive advisories, list
-      # them in `deny.toml`'s `[advisories] ignore` (the source of truth)
-      # and mirror them here as inline flags, e.g.:
-      #   run: cargo audit --ignore RUSTSEC-2024-XXXX --ignore RUSTSEC-2025-YYYY
-      - name: Run cargo audit
-        run: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
-
+  # cargo deny checks licenses, bans and sources. Advisories run through
+  # cargo-lockpatrol, which reads the one ignore list in `deny.toml` and
+  # covers every tracked Cargo.lock (crates/site's as well as the root's);
+  # `advisory-monitor.yml` runs the same action daily to catch advisories
+  # published between pushes. It runs with `locked: root`, so a root
+  # Cargo.lock that disagrees with its manifest fails the check as broken
+  # rather than being re-resolved.
   deny:
     name: License & Dependency Check
     runs-on: ubuntu-latest
@@ -51,10 +36,21 @@ jobs:
           toolchain: stable
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        with:
+          tool: cargo-deny
+          fallback: none
 
+      # --locked: without it this step re-resolves a stale Cargo.lock in
+      # the checkout, and the advisory step below then reads the rewritten
+      # lock instead of the committed one.
       - name: Run cargo deny
-        run: cargo deny check
+        run: cargo deny --workspace --locked check bans licenses sources
+
+      - name: Check advisories in every lockfile
+        uses: padamson/cargo-lockpatrol@e791845e4a03af540c2348755c3695041cdd54fd # v0.2.0
+        with:
+          locked: root
 
   supply-chain:
     name: Supply Chain Review

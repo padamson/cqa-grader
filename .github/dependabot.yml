@@ -70,3 +70,23 @@ updates:
           - "*"
         exclude-patterns:
           - "actions/create-github-app-token"
+
+  # cargo-lockpatrol's hook rev in .pre-commit-config.yaml. Its action pin
+  # moves in the actions PR above and its hook rev in this one, so the
+  # commit hook and the CI gate can sit a release apart until both have
+  # merged. Only cargo-lockpatrol: asbuilt's rev moves by hand with the
+  # pin in asbuilt.toml, in one commit. Only default-days, as for
+  # github-actions.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "04:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    # pre-commit dependency names are full repo URLs, hence the wildcards.
+    allow:
+      - dependency-name: "*padamson/cargo-lockpatrol*"

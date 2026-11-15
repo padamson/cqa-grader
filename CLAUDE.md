@@ -66,8 +66,8 @@ cargo nextest run        # run tests
 cargo test --doc         # doc tests
 cargo clippy             # lint
 cargo fmt                # format
-cargo audit              # security scan
-cargo deny check         # license/dependency check
+cargo deny --workspace check bans licenses sources   # license/dependency check
+prek run cargo-lockpatrol --all-files                # advisories, every Cargo.lock
 cargo vet                # supply chain review
 cargo run -- trace-schema > schemas/trace.schema.json   # after changing src/trace.rs
 ```
@@ -88,7 +88,9 @@ cargo install prek
 prek install --overwrite   # --overwrite replaces any legacy pre-commit hook
 ```
 
-Hooks mirror CI checks: fmt, clippy, check, nextest, doctest, audit, deny, vet.
+Hooks mirror CI checks: fmt, clippy, check, nextest, doctest, deny, vet, and
+advisories through cargo-lockpatrol (the CI gate's action, and the daily
+`advisory-monitor.yml`, which keeps one tracking issue).
 
 ## Mutation testing
 

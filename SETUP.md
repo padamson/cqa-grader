@@ -38,10 +38,10 @@ These settings cannot be configured via code and must be set in the GitHub UI.
   - `Lint` — fmt, clippy, doctest, cargo doc (ubuntu-only)
   - `Test on ubuntu-latest` — primary CI signal
   - `Test on macos-latest` / `Test on windows-latest` — broader coverage, slower merges
-  - `Security Audit`, `License & Dependency Check`, `Supply Chain Review`
+  - `License & Dependency Check` (advisories too, through cargo-lockpatrol), `Supply Chain Review`
   - `CodeQL`
 
-  **Solo-friendly minimum:** `MSRV Check`, `Lint`, `Test on ubuntu-latest`, `Security Audit`, `License & Dependency Check`, `Supply Chain Review`. **Full coverage:** add `Test on macos-latest`, `Test on windows-latest`, and `CodeQL`.
+  **Solo-friendly minimum:** `MSRV Check`, `Lint`, `Test on ubuntu-latest`, `License & Dependency Check`, `Supply Chain Review`. **Full coverage:** add `Test on macos-latest`, `Test on windows-latest`, and `CodeQL`.
 
   Either click through the UI, or apply via `gh api` (requires `admin:repo` scope — run `gh auth refresh -s admin:repo` first if needed):
 
@@ -55,7 +55,6 @@ These settings cannot be configured via code and must be set in the GitHub UI.
         {"context": "MSRV Check"},
         {"context": "Lint"},
         {"context": "Test on ubuntu-latest"},
-        {"context": "Security Audit"},
         {"context": "License & Dependency Check"},
         {"context": "Supply Chain Review"}
       ]
@@ -98,7 +97,7 @@ These settings cannot be configured via code and must be set in the GitHub UI.
 ### Install tools
 
 ```bash
-cargo install cargo-nextest cargo-audit cargo-deny cargo-vet cargo-mutants cargo-semver-checks prek
+cargo install cargo-nextest cargo-deny cargo-vet cargo-mutants cargo-semver-checks prek
 ```
 
 If any `cargo install` fails with a rustc version mismatch (`requires rustc X.Y.Z or newer, while the currently active rustc version is ...`), run `rustup update stable` — or run `cargo install` from outside any directory containing a `rust-toolchain.toml` override. `cargo install` uses the *active* toolchain, which is directory-scoped when a toolchain file is present in the working tree.
@@ -118,7 +117,8 @@ legacy Python `pre-commit`. Without it, prek keeps the old hook at
 ```bash
 cargo build
 cargo nextest run
-cargo deny check
+cargo deny --workspace check bans licenses sources
+prek run cargo-lockpatrol --all-files
 ```
 
 ### Initialize cargo-vet
