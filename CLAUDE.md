@@ -124,10 +124,10 @@ what a pass looks like; CI is the backstop, not the plan.
 
 **Not from a session at all**, changed on github.com or crates.io: the
 required checks in `main`'s branch protection (after adding, renaming or
-removing a job that gates a merge), the "release tags" ruleset (after a
-change to `release.yml`'s tags), the merge App's installation on this
-repo and its key, Dependabot malware alerts, and the crate's publishing
-token or Trusted Publisher.
+removing a job that gates a merge), the "release tags" ruleset and the
+`release` environment's deployment policies (after a change to
+`release.yml`'s tags), the merge App's installation on this repo and its
+key, Dependabot malware alerts, and the crate's Trusted Publisher.
 
 **By eye:**
 
@@ -149,7 +149,20 @@ V&V sense and is not used here.
 1. Update version in `Cargo.toml`
 2. Update `CHANGELOG.md`
 3. Commit: `git commit -m "Release vX.Y.Z"`
-4. Tag: `git tag vX.Y.Z`
-5. Push: `git push origin main --tags`
+4. Push the commit, `git push origin main`, and wait for Security & Quality
+   to pass on it (`release.yml` does not check vet or deny itself).
+5. Tag and push the tag: `git tag vX.Y.Z`, then `git push origin vX.Y.Z`
 
-The tag triggers CI which builds, tests, creates a GitHub Release, and publishes to crates.io.
+The tag runs `release.yml`: it refuses a commit that is not on `main`,
+checks the tag against `Cargo.toml` and the CHANGELOG, runs the semver
+gate and the build and tests on four targets, publishes to crates.io
+through Trusted Publishing in the `release` environment, and creates the
+GitHub Release last.
+
+The first release differs, because crates.io adds a trusted publisher
+only to a crate that exists. After step 4, publish by hand (`cargo
+publish` from a plain terminal, with a token you revoke afterwards). Then,
+on the crate's settings page on crates.io, add a GitHub trusted publisher
+(`padamson/cqa-grader`, workflow `release.yml`, environment `release`) and
+tick "Require trusted publishing for all new versions". The tag's publish
+job then finds the version on crates.io and skips it.

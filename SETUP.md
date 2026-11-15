@@ -81,16 +81,15 @@ These settings cannot be configured via code and must be set in the GitHub UI.
   - Secret scanning
   - Push protection
 
-### Secrets (for crates.io publishing)
+### Publishing (crates.io Trusted Publishing, no token secret)
 
-- [ ] **Settings > Secrets and variables > Actions:** Add `CARGO_REGISTRY_TOKEN`
-  - Generate at https://crates.io/settings/tokens
-  - Scopes: `publish-new` (required for the first-ever publish) **and** `publish-update` (required for all subsequent releases)
-  - Crate name: scope the token to your crate. After the first release, you can regenerate a narrower token with only `publish-update` if you want strict least-privilege.
-
-### Environments (optional)
-
-- [ ] Create `release` environment with required reviewers if you want manual approval before publishing
+- [ ] **Settings > Environments:** create `release`, set "Deployment
+  branches and tags" to selected branches and tags, and add one tag rule,
+  `v*` (one per pattern in `release.yml`'s `on.push.tags`), with no branch
+  rules. Create it before the first tag: a run naming an environment
+  GitHub does not have creates it open to every branch.
+- [ ] **crates.io trusted publisher**, added after the first version is
+  published by hand: the release process in `CLAUDE.md` has the steps.
 
 ## Local setup
 
