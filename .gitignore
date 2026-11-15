@@ -17,6 +17,14 @@
 # Environment variables (secrets, config)
 .env
 
+# Agent skills installed with `npx skills add`. skills-lock.json is the
+# tracked pin; the content is fetched, so it is not vendored here. The CLI
+# writes the skill under .agents/skills/ and links it from .claude/skills/
+# (or writes it there directly), and a tracked copy would drift against
+# panschema.
+/.agents/skills/
+/.claude/skills/
+
 # OS files
 .DS_Store
 Thumbs.db
