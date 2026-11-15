@@ -104,7 +104,7 @@ repos:
         entry: cargo vet
         language: system
         pass_filenames: false
-        files: (Cargo\.toml|Cargo\.lock|supply-chain/)$
+        files: (Cargo\.toml|Cargo\.lock)$|^supply-chain/
 
   # `rev` picks the hook definition; the binary is the release asbuilt.toml pins.
   - repo: https://github.com/padamson/asbuilt
