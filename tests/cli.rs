@@ -57,7 +57,7 @@ fn baseline_then_grade_leaves_only_closed_world_negatives_unanswered() {
         let negative = r["answer_kinds"]
             .as_array()
             .unwrap()
-            .contains(&"closed-world-negative".into());
+            .contains(&"closed_world_negative".into());
         let expected = if negative { "unanswered" } else { "passed" };
         assert_eq!(r["outcome"], expected, "{r}");
     }
@@ -168,6 +168,35 @@ fn a_partial_read_refusal_is_printed_once() {
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     // A refusal that was also the error's source printed twice.
     assert_eq!(stderr.matches("`expected_anchor`").count(), 1, "{stderr}");
+}
+
+#[test]
+fn wines_benchmark_moved_to_cqa_0_2_grades_the_same() {
+    // Wine publishes its benchmark for cqa 0.1. This is the same key in
+    // 0.2's shape, read as a user's would be: from a file, against cqa's
+    // 0.2 schema.
+    let pair = "target_dataset: worked-example\ntarget_dataset_version: 0.2.1\n";
+    let entry = "target_datasets:\n  - dataset: worked-example\n    version: 0.2.1\n";
+    let kind = "- closed-world-negative";
+    let written = common::fixture_text("wine-benchmark.yaml");
+    assert!(
+        written.contains(pair) && written.contains(kind),
+        "wine's benchmark is no longer written for cqa 0.1; this test goes with the 0.1 reading"
+    );
+    let dir = tempdir();
+    let moved = dir.join("wine-benchmark-0.2.yaml");
+    let text = written
+        .replace(pair, entry)
+        .replace(kind, "- closed_world_negative");
+    std::fs::write(&moved, text).unwrap();
+    let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
+    let mut from_moved = cli();
+    from_moved
+        .arg("grade")
+        .args(["--benchmark", moved.to_str().unwrap()])
+        .args(["--cqa-schema", &fixture("cqa-0.2/cqa.yaml")])
+        .args(["--trace", trace.to_str().unwrap()]);
+    assert_eq!(report_json(&mut from_moved), grade_json(&trace, &[]));
 }
 
 /// `--benchmark` and `--cqa-schema` naming wine's benchmark by its LinkML

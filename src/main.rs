@@ -77,8 +77,9 @@ struct Retrieval {
     /// are the benchmark's target.
     #[arg(long)]
     graph: Vec<PathBuf>,
-    /// The dataset those files hold, as the benchmark's `target_dataset`
-    /// would name it, for a graph that does not state it. One that
+    /// The dataset those files hold, as the benchmark's target names it
+    /// (`target_datasets`' `dataset`, or cqa 0.1's `target_dataset`), for
+    /// a graph that does not state it. One that
     /// contradicts what the graph states is refused.
     #[arg(long, requires_all = ["graph", "dataset_version"])]
     dataset: Option<String>,

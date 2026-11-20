@@ -10,7 +10,7 @@
 //! - `citations-grounded`: `cited` ⊆ `retrieved`. A citation to a record
 //!   retrieval never reached is a fabrication, whatever the key says.
 //! - `no-false-absence`: the attempt `asserts_absence` only if the question
-//!   is a `closed-world-negative`. "None on record" for a question whose
+//!   is a `closed_world_negative`. "None on record" for a question whose
 //!   answer is on record is a wrong answer, however much was retrieved.
 //!
 //! Per-kind checks:
@@ -19,7 +19,7 @@
 //!   cqa declares expected values. The check is recorded so the dispatch is
 //!   visible, and it passes when `anchors-reached` does.
 //! - `attribution`: `cited` ⊇ `expected_citations`, and non-empty.
-//! - `closed-world-negative`: the attempt `asserts_absence`, and every
+//! - `closed_world_negative`: the attempt `asserts_absence`, and every
 //!   `unconnected_anchors` record was retrieved. A system that reaches both
 //!   records and says nothing has not answered.
 //!
@@ -735,7 +735,7 @@ mod tests {
         let report = graded(&b, vec![a]);
         let r = result(&report, "cq-03");
         assert!(check(r, "anchors-reached").passed);
-        let c = check(r, "closed-world-negative");
+        let c = check(r, "closed_world_negative");
         assert!(!c.passed, "{c:?}");
         // Nothing is missing, so it failed for the absent assertion.
         assert!(c.missing.is_empty(), "{c:?}");
@@ -759,7 +759,7 @@ mod tests {
         let mut a = Attempt::empty(&q.id);
         a.asserts_absence = true;
         let report = graded(&b, vec![a]);
-        let c = check(result(&report, "cq-03"), "closed-world-negative");
+        let c = check(result(&report, "cq-03"), "closed_world_negative");
         assert!(!c.passed);
         assert_eq!(c.missing.len(), 2);
     }
@@ -889,7 +889,7 @@ mod tests {
     fn only_failed_checks_are_listed() {
         let b = wine();
         let text = graded(&b, abstaining(&b)).to_text();
-        assert!(text.contains("closed-world-negative: "), "{text}");
+        assert!(text.contains("closed_world_negative: "), "{text}");
         assert!(!text.contains("attempted: "), "{text}");
     }
 
@@ -945,7 +945,7 @@ mod tests {
         a.asserts_absence = false;
         let report = graded(&b, vec![a]);
         let text = report.to_text();
-        assert!(text.contains("cq-03 closed-world-negative"), "{text}");
+        assert!(text.contains("cq-03 closed_world_negative"), "{text}");
         assert!(text.contains("UNATTEMPTED"), "{text}");
         assert!(
             text.contains("6 questions: 0 passed, 1 unanswered, 0 wrong, 5 unattempted"),

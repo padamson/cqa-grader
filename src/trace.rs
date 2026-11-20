@@ -41,11 +41,13 @@ pub struct System {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Graph {
-    /// The dataset, as the benchmark's `cqa:target_dataset` would name it
-    /// (for wine, `worked-example`).
+    /// The dataset, as the benchmark's target names it: the `cqa:dataset`
+    /// of its one `cqa:target_datasets` entry, or cqa 0.1's
+    /// `cqa:target_dataset` (for wine, `worked-example`).
     pub dataset: String,
-    /// The dataset's version, as `cqa:target_dataset_version` would give
-    /// it. A pre-release (`0.2.1-dev`) is graded as its release (`0.2.1`).
+    /// The dataset's version, as the entry's `pav:version` or cqa 0.1's
+    /// `cqa:target_dataset_version` gives it. A pre-release (`0.2.1-dev`)
+    /// is graded as its release (`0.2.1`).
     pub dataset_version: String,
 }
 
@@ -230,7 +232,7 @@ pub(crate) fn write_json(path: impl AsRef<Path>, value: &impl Serialize) -> Resu
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
@@ -252,7 +254,8 @@ mod tests {
         }
     }
 
-    fn graph() -> Graph {
+    /// Dataset `d` at version `1`, the graph the test benchmarks target.
+    pub(crate) fn graph() -> Graph {
         Graph {
             dataset: "d".into(),
             dataset_version: "1".into(),

@@ -35,11 +35,13 @@ const CQA: &str = "https://w3id.org/cqa/";
 /// Mirrors `cqa:AnswerKindEnum`. Every kind a question names is a separate
 /// check, and all of them must pass.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "snake_case")]
 pub enum AnswerKind {
     /// A value read from a single record.
     Lookup,
-    /// The correct answer is that the graph holds no such record.
+    /// The correct answer is that the graph holds no such record. cqa 0.1
+    /// spelled it `closed-world-negative`, which is still read.
+    #[serde(alias = "closed-world-negative")]
     ClosedWorldNegative,
     /// Two or more records set against each other on a shared slot.
     Comparison,
@@ -54,7 +56,7 @@ impl AnswerKind {
     pub fn as_str(self) -> &'static str {
         match self {
             AnswerKind::Lookup => "lookup",
-            AnswerKind::ClosedWorldNegative => "closed-world-negative",
+            AnswerKind::ClosedWorldNegative => "closed_world_negative",
             AnswerKind::Comparison => "comparison",
             AnswerKind::Synthesis => "synthesis",
             AnswerKind::Attribution => "attribution",
@@ -116,9 +118,12 @@ pub struct Benchmark {
     pub target_schema: String,
     /// The version of that schema the anchors were written against.
     pub target_schema_version: String,
-    /// Which instance graph the anchors resolve in.
+    /// Which instance graph the anchors resolve in: cqa 0.1's
+    /// `target_dataset`, or the `dataset` of the one entry in cqa 0.2's
+    /// `target_datasets`.
     pub target_dataset: String,
-    /// The version of that dataset.
+    /// The version of that dataset: cqa 0.1's `target_dataset_version`, or
+    /// the entry's `version`.
     pub target_dataset_version: String,
     /// The questions, in `cqa:id` order.
     pub questions: Vec<Question>,
@@ -202,8 +207,32 @@ pub enum Refusal {
     },
     /// A closed-world negative that names no anchors left unjoined, so it
     /// would grade on its assertion of absence alone.
-    #[error("{0}: closed-world-negative with no unconnected_anchors")]
+    #[error("{0}: closed_world_negative with no unconnected_anchors")]
     NegativeWithoutUnconnectedAnchors(String),
+    /// A `target_datasets` value that names no `TargetDataset` record: in
+    /// the YAML, a bare string where the entry belongs.
+    #[error("{0}: not a TargetDataset; an entry of target_datasets gives its dataset and version")]
+    NotATargetDataset(String),
+    /// A benchmark whose `target_datasets` lists more than one dataset.
+    /// cqa 0.2 allows it; this grader grades against one graph.
+    #[error("{benchmark}: targets {count} datasets; this grader grades a benchmark against one")]
+    SeveralTargetDatasets {
+        /// The benchmark's id.
+        benchmark: String,
+        /// How many it lists.
+        count: usize,
+    },
+    /// A benchmark that names no target in either shape.
+    #[error(
+        "{0}: no target; give `target_datasets` (cqa 0.2), or `target_dataset` and \
+         `target_dataset_version` (cqa 0.1)"
+    )]
+    NoTarget(String),
+    /// A benchmark that names its target both as cqa 0.2 does
+    /// (`target_datasets`) and as cqa 0.1 did (`target_dataset`,
+    /// `target_dataset_version`).
+    #[error("{0}: names its target in both `target_datasets` and `target_dataset`; keep one")]
+    TwoTargetShapes(String),
     /// Two questions share an id.
     #[error("{0}: more than one question has this id")]
     DuplicateQuestion(String),
@@ -296,6 +325,18 @@ impl Benchmark {
 
     fn from_loaded(loaded: &LoadedDataset) -> Result<Self> {
         let set = &loaded.instances;
+        let of_type = |class: &'static str| {
+            set.instances
+                .iter()
+                .filter(move |i| i.types.iter().any(|t| t == class))
+        };
+        // panschema mints a target entry an id the author never wrote, so
+        // a field the load read past in one is reported under the name
+        // every other refusal gives the entry.
+        let named = |record: &String| match of_type("Benchmark").next() {
+            Some(b) if of_type("TargetDataset").any(|i| i.id == *record) => entry_name(&b.id),
+            _ => record.clone(),
+        };
         let unread: Vec<Unread> = loaded
             .warnings
             .iter()
@@ -311,7 +352,7 @@ impl Benchmark {
                 set.undeclared_fields
                     .iter()
                     .map(|f| Unread::UndeclaredField {
-                        record: f.record.clone(),
+                        record: named(&f.record),
                         field: f.field.clone(),
                         class: f.class.clone(),
                     }),
@@ -336,11 +377,6 @@ impl Benchmark {
             return Err(Refusal::PartlyRead(unread).into());
         }
 
-        let of_type = |class: &'static str| {
-            set.instances
-                .iter()
-                .filter(move |i| i.types.iter().any(|t| t == class))
-        };
         // cqa has one `tree_root`, so a dataset holds at most one Benchmark.
         let Some(benchmark) = of_type("Benchmark").next() else {
             return Err(Refusal::NoBenchmark.into());
@@ -366,13 +402,25 @@ impl Benchmark {
                     .map(|v| expand_curie_or_verbatim(&loaded.schema, v))
                     .collect())
             };
+            // The schema the benchmark is read against says how a kind is
+            // spelled, so cqa 0.1's spelling is no kind under cqa 0.2, nor
+            // 0.2's under 0.1.
+            let permitted = |name: &str| {
+                loaded
+                    .schema
+                    .enums
+                    .get("AnswerKindEnum")
+                    .is_some_and(|e| e.permissible_values.contains_key(name))
+            };
             let answer_kinds = values(record, "answer_kind")?
                 .into_iter()
                 .map(|name| {
-                    AnswerKind::from_name(&name).ok_or_else(|| Refusal::UnknownAnswerKind {
-                        question: id.clone(),
-                        kind: name,
-                    })
+                    AnswerKind::from_name(&name)
+                        .filter(|_| permitted(&name))
+                        .ok_or_else(|| Refusal::UnknownAnswerKind {
+                            question: id.clone(),
+                            kind: name,
+                        })
                 })
                 .collect::<std::result::Result<_, _>>()?;
             questions.push(Question {
@@ -388,13 +436,38 @@ impl Benchmark {
             });
         }
 
+        let id = required(benchmark, "id")?;
+        let entries = values(benchmark, "target_datasets")?
+            .iter()
+            .map(|target| {
+                let Some(record) = of_type("TargetDataset").find(|i| i.id == *target) else {
+                    return Err(Refusal::NotATargetDataset(target.clone()).into());
+                };
+                // panschema mints the entry an id the author never wrote,
+                // so refusals name it as the Turtle reader does.
+                let name = entry_name(&id);
+                Ok(TargetEntry {
+                    dataset: single_as(record, &name, "dataset")?,
+                    version: single_as(record, &name, "version")?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let target = one_target(
+            &id,
+            (
+                single(benchmark, "target_dataset")?,
+                single(benchmark, "target_dataset_version")?,
+            ),
+            entries,
+        )?;
+
         Benchmark {
-            id: required(benchmark, "id")?,
+            id,
             name: single(benchmark, "name")?,
             target_schema: required(benchmark, "target_schema")?,
             target_schema_version: required(benchmark, "target_schema_version")?,
-            target_dataset: required(benchmark, "target_dataset")?,
-            target_dataset_version: required(benchmark, "target_dataset_version")?,
+            target_dataset: target.dataset,
+            target_dataset_version: target.dataset_version,
             iri: instance_iri_string(&loaded.schema, benchmark),
             questions,
         }
@@ -438,7 +511,7 @@ impl Benchmark {
             .into());
         }
         let id = row.require("id")?;
-        let pin = |var, slot| -> Result<String> {
+        let pin = |var, slot| -> Result<Option<String>> {
             if differs(var) {
                 return Err(Refusal::MoreThanOne {
                     record: id.clone(),
@@ -446,12 +519,21 @@ impl Benchmark {
                 }
                 .into());
             }
-            Ok(row.get(var).ok_or_else(|| Refusal::missing(&id, slot))?)
+            Ok(row.get(var))
         };
-        let target_schema = pin("ts", "target_schema")?;
-        let target_schema_version = pin("tsv", "target_schema_version")?;
-        let target_dataset = pin("td", "target_dataset")?;
-        let target_dataset_version = pin("tdv", "target_dataset_version")?;
+        let required_pin = |var, slot| -> Result<String> {
+            Ok(pin(var, slot)?.ok_or_else(|| Refusal::missing(&id, slot))?)
+        };
+        let target_schema = required_pin("ts", "target_schema")?;
+        let target_schema_version = required_pin("tsv", "target_schema_version")?;
+        let target = one_target(
+            &id,
+            (
+                pin("td", "target_dataset")?,
+                pin("tdv", "target_dataset_version")?,
+            ),
+            turtle_target_entries(store, &iri, &id)?,
+        )?;
 
         let mut questions: BTreeMap<String, Question> = BTreeMap::new();
         for q in select(
@@ -559,8 +641,8 @@ impl Benchmark {
             name: row.get("name"),
             target_schema,
             target_schema_version,
-            target_dataset,
-            target_dataset_version,
+            target_dataset: target.dataset,
+            target_dataset_version: target.dataset_version,
             questions: questions.into_values().collect(),
         }
         .checked()
@@ -622,9 +704,111 @@ impl Benchmark {
     }
 }
 
+/// One entry of cqa 0.2's `target_datasets` as a reader found it.
+struct TargetEntry {
+    dataset: Option<String>,
+    version: Option<String>,
+}
+
+/// The graph a benchmark targets, from whichever shape names it: cqa 0.2's
+/// `target_datasets` (`entries`), or cqa 0.1's `target_dataset` and
+/// `target_dataset_version` (`pair`). Both readers end here.
+fn one_target(
+    benchmark: &str,
+    pair: (Option<String>, Option<String>),
+    mut entries: Vec<TargetEntry>,
+) -> Result<Graph> {
+    if entries.len() > 1 {
+        return Err(Refusal::SeveralTargetDatasets {
+            benchmark: benchmark.into(),
+            count: entries.len(),
+        }
+        .into());
+    }
+    let (dataset, dataset_version) = match (entries.pop(), pair) {
+        (Some(_), (Some(_), _) | (_, Some(_))) => {
+            return Err(Refusal::TwoTargetShapes(benchmark.into()).into());
+        }
+        (Some(entry), _) => {
+            let record = entry_name(benchmark);
+            (
+                entry
+                    .dataset
+                    .ok_or_else(|| Refusal::missing(&record, "dataset"))?,
+                entry
+                    .version
+                    .ok_or_else(|| Refusal::missing(&record, "version"))?,
+            )
+        }
+        (None, (None, None)) => return Err(Refusal::NoTarget(benchmark.into()).into()),
+        (None, (dataset, version)) => (
+            dataset.ok_or_else(|| Refusal::missing(benchmark, "target_dataset"))?,
+            version.ok_or_else(|| Refusal::missing(benchmark, "target_dataset_version"))?,
+        ),
+    };
+    Ok(Graph {
+        dataset,
+        dataset_version,
+    })
+}
+
+/// How a refusal names a benchmark's target entry, which has no id of its
+/// own in either form.
+fn entry_name(benchmark: &str) -> String {
+    format!("{benchmark}'s target dataset")
+}
+
+/// The entries of `cqa:target_datasets` on the benchmark at `iri`, one per
+/// node. The nodes are blank, which a row leaves out, so each is a group,
+/// and a node with two names or two versions is refused here, as is a
+/// bare literal where a node belongs, which the YAML reader refuses too.
+/// A node need not be typed, as a question need not be.
+fn turtle_target_entries(store: &Store, iri: &str, benchmark: &str) -> Result<Vec<TargetEntry>> {
+    let rows = select(
+        store,
+        &format!(
+            "PREFIX cqa: <{CQA}> PREFIX pav: <http://purl.org/pav/>
+             SELECT ?t (isLiteral(?t) AS ?literal)
+                    (SAMPLE(?d) AS ?dataset) (COUNT(DISTINCT ?d) AS ?datasets)
+                    (SAMPLE(?v) AS ?version) (COUNT(DISTINCT ?v) AS ?versions)
+             WHERE {{
+               <{iri}> cqa:target_datasets ?t .
+               OPTIONAL {{ ?t cqa:dataset ?d }}
+               OPTIONAL {{ ?t pav:version ?v }}
+             }}
+             GROUP BY ?t"
+        ),
+    )?;
+    rows.iter()
+        .map(|row| {
+            if row.require("literal")? == "true" {
+                return Err(Refusal::NotATargetDataset(row.require("t")?).into());
+            }
+            for (count, slot) in [("datasets", "dataset"), ("versions", "version")] {
+                if !matches!(row.require(count)?.as_str(), "0" | "1") {
+                    return Err(Refusal::MoreThanOne {
+                        record: entry_name(benchmark),
+                        slot,
+                    }
+                    .into());
+                }
+            }
+            Ok(TargetEntry {
+                dataset: row.get("dataset"),
+                version: row.get("version"),
+            })
+        })
+        .collect()
+}
+
 /// A record's values at `slot`, as text: a string literal, or the record a
 /// reference names (an anchor, expanded to its IRI).
 fn values(record: &Instance, slot: &'static str) -> Result<Vec<String>> {
+    values_as(record, &record.id, slot)
+}
+
+/// `values`, with a refusal naming the record `name` rather than its id.
+fn values_as(record: &Instance, name: &str, slot: &'static str) -> Result<Vec<String>> {
     let Some(found) = record.slot_values.iter().find(|v| v.slot == slot) else {
         return Ok(Vec::new());
     };
@@ -635,13 +819,13 @@ fn values(record: &Instance, slot: &'static str) -> Result<Vec<String>> {
             InstanceValue::Scalar(ScalarValue::String(s)) => Ok(s.clone()),
             InstanceValue::Reference { target, .. } => Ok(target.clone()),
             InstanceValue::Scalar(scalar) => Err(Refusal::Unquoted {
-                record: record.id.clone(),
+                record: name.into(),
                 slot,
                 value: scalar_to_display(scalar),
             }
             .into()),
             InstanceValue::Unexpected(kind) => Err(Refusal::NotText {
-                record: record.id.clone(),
+                record: name.into(),
                 slot,
                 kind: kind.to_string(),
             }
@@ -657,10 +841,15 @@ fn required(record: &Instance, slot: &'static str) -> Result<String> {
 
 /// A record's one value at `slot`, if it has one.
 fn single(record: &Instance, slot: &'static str) -> Result<Option<String>> {
-    let mut found = values(record, slot)?;
+    single_as(record, &record.id, slot)
+}
+
+/// `single`, with a refusal naming the record `name` rather than its id.
+fn single_as(record: &Instance, name: &str, slot: &'static str) -> Result<Option<String>> {
+    let mut found = values_as(record, name, slot)?;
     if found.len() > 1 {
         return Err(Refusal::MoreThanOne {
-            record: record.id.clone(),
+            record: name.into(),
             slot,
         }
         .into());
@@ -770,6 +959,7 @@ pub(crate) mod tests {
     fn benchmark_with(extra: &str, questions: &str) -> String {
         format!(
             "@prefix cqa: <{CQA}> . @prefix ex: <http://example.org/> .
+             @prefix pav: <http://purl.org/pav/> .
              ex:b a cqa:Benchmark ; cqa:id \"b\" ;
                cqa:target_schema \"s\" ; cqa:target_schema_version \"1\" ;
                cqa:target_dataset \"d\" ; cqa:target_dataset_version \"1\" ;
@@ -880,6 +1070,112 @@ pub(crate) mod tests {
         );
     }
 
+    /// `benchmark_with("", TWO_QUESTIONS)` with its target written as cqa
+    /// 0.2 writes it: `targets`, the entries of `cqa:target_datasets`.
+    fn benchmark_targeting(targets: &str) -> String {
+        let ttl = benchmark_with("", TWO_QUESTIONS);
+        let pair = "cqa:target_dataset \"d\" ; cqa:target_dataset_version \"1\" ;";
+        assert!(ttl.contains(pair), "{pair:?} is not in the benchmark");
+        ttl.replacen(pair, &format!("cqa:target_datasets {targets} ;"), 1)
+    }
+
+    /// One `TargetDataset`, as panschema writes it: a blank node.
+    const TARGET: &str = "[ a cqa:TargetDataset ; cqa:dataset \"d\" ; pav:version \"1\" ]";
+
+    #[test]
+    fn a_cqa_0_2_target_names_the_graph() {
+        let b = Benchmark::from_turtle(&benchmark_targeting(TARGET)).unwrap();
+        assert_eq!(b.target_graph(), crate::trace::tests::graph());
+    }
+
+    #[test]
+    fn a_benchmark_targeting_two_datasets_is_refused() {
+        let two =
+            format!("{TARGET}, [ a cqa:TargetDataset ; cqa:dataset \"e\" ; pav:version \"1\" ]");
+        assert_eq!(
+            turtle_refused(&benchmark_targeting(&two)),
+            Refusal::SeveralTargetDatasets {
+                benchmark: "b".into(),
+                count: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn a_target_dataset_without_its_name_or_version_is_refused_naming_it() {
+        for (slot, dropped) in [
+            ("dataset", "cqa:dataset \"d\" ;"),
+            ("version", "; pav:version \"1\""),
+        ] {
+            let target = TARGET.replacen(dropped, "", 1);
+            assert_eq!(
+                turtle_refused(&benchmark_targeting(&target)),
+                Refusal::missing("b's target dataset", slot),
+                "{target}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_target_dataset_with_two_names_or_versions_is_refused() {
+        for (slot, one, two) in [
+            ("dataset", "cqa:dataset \"d\"", "cqa:dataset \"d\", \"e\""),
+            ("version", "pav:version \"1\"", "pav:version \"1\", \"2\""),
+        ] {
+            let target = TARGET.replacen(one, two, 1);
+            assert_eq!(
+                turtle_refused(&benchmark_targeting(&target)),
+                Refusal::MoreThanOne {
+                    record: "b's target dataset".into(),
+                    slot,
+                },
+                "{target}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_turtle_target_written_as_a_bare_literal_is_refused_naming_it() {
+        assert_eq!(
+            turtle_refused(&benchmark_targeting("\"d\"")),
+            Refusal::NotATargetDataset("d".into())
+        );
+    }
+
+    #[test]
+    fn a_target_dataset_node_reads_without_its_type() {
+        let untyped = "[ cqa:dataset \"d\" ; pav:version \"1\" ]";
+        let b = Benchmark::from_turtle(&benchmark_targeting(untyped)).unwrap();
+        assert_eq!(b.target_graph(), crate::trace::tests::graph());
+    }
+
+    #[test]
+    fn a_benchmark_naming_its_target_both_ways_is_refused() {
+        // Either of cqa 0.1's two slots beside `target_datasets` is enough.
+        for old in [
+            "cqa:target_dataset \"d\"",
+            "cqa:target_dataset_version \"1\"",
+        ] {
+            let ttl = benchmark_targeting(TARGET).replacen(
+                "cqa:target_datasets",
+                &format!("{old} ; cqa:target_datasets"),
+                1,
+            );
+            assert_eq!(
+                turtle_refused(&ttl),
+                Refusal::TwoTargetShapes("b".into()),
+                "{old}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_benchmark_naming_no_target_is_refused() {
+        let ttl =
+            benchmark_targeting(TARGET).replacen(&format!("cqa:target_datasets {TARGET} ;"), "", 1);
+        assert_eq!(turtle_refused(&ttl), Refusal::NoTarget("b".into()));
+    }
+
     #[test]
     fn a_question_without_an_id_is_an_error_naming_its_iri() {
         let questions = TWO_QUESTIONS.replacen("ex:q1 cqa:id \"q1\" ;", "ex:q1", 1);
@@ -930,7 +1226,7 @@ pub(crate) mod tests {
         // question grades on `asserts_absence` alone.
         let questions = format!(
             "{TWO_QUESTIONS}
-             ex:q2 cqa:answer_kind <{CQA}AnswerKindEnum#closed-world-negative> ."
+             ex:q2 cqa:answer_kind <{CQA}AnswerKindEnum#closed_world_negative> ."
         );
         assert_eq!(
             turtle_refused(&benchmark_with("", &questions)),
@@ -963,9 +1259,10 @@ pub(crate) mod tests {
         assert_eq!(yaml, Benchmark::from_turtle(&wine_benchmark()).unwrap());
     }
 
-    /// The cqa schema the YAML fixtures are read against.
-    fn cqa_schema() -> panschema_model::linkml::SchemaDefinition {
-        panschema_model::import_resolve::load_schema(&fixture_path("cqa.yaml"), &YamlReader::new())
+    /// The cqa schema fixture `name`: `cqa.yaml`, the one wine's benchmark
+    /// is written against, or `cqa-0.2/cqa.yaml`.
+    fn cqa_schema(name: &str) -> panschema_model::linkml::SchemaDefinition {
+        panschema_model::import_resolve::load_schema(&fixture_path(name), &YamlReader::new())
             .unwrap()
             .schema
     }
@@ -973,7 +1270,12 @@ pub(crate) mod tests {
     /// The load of `data` as a cqa dataset, as `load_dataset` gives it but
     /// from text.
     fn loaded(data: &str) -> LoadedDataset {
-        let schema = cqa_schema();
+        loaded_against("cqa.yaml", data)
+    }
+
+    /// The load of `data` read against the cqa schema fixture `schema`.
+    fn loaded_against(schema: &str, data: &str) -> LoadedDataset {
+        let schema = cqa_schema(schema);
         let value: serde_norway::Value = serde_norway::from_str(data).unwrap();
         let instances = panschema_model::instances::InstanceSet::from_linkml_data(&schema, &value);
         LoadedDataset {
@@ -1219,6 +1521,165 @@ competency_question_answers:
         assert_eq!(refusal, Refusal::missing("b", "target_dataset"));
     }
 
+    /// The one-question benchmark in cqa 0.2's shape, its target written
+    /// as `targets`.
+    fn yaml_targeting(targets: &str) -> String {
+        let pair = "target_dataset: d\ntarget_dataset_version: '1'\n";
+        yaml_question_with(pair, &format!("target_datasets:\n{targets}"))
+    }
+
+    /// `data` read against cqa 0.2.
+    fn from_yaml_0_2(data: &str) -> Result<Benchmark> {
+        Benchmark::from_loaded(&loaded_against("cqa-0.2/cqa.yaml", data))
+    }
+
+    fn from_yaml_targeting(targets: &str) -> Result<Benchmark> {
+        from_yaml_0_2(&yaml_targeting(targets))
+    }
+
+    const YAML_TARGET: &str = "  - dataset: d\n    version: '1'\n";
+
+    #[test]
+    fn a_cqa_0_2_yaml_target_names_the_graph() {
+        let b = from_yaml_targeting(YAML_TARGET).unwrap();
+        assert_eq!(b.target_graph(), crate::trace::tests::graph());
+    }
+
+    #[test]
+    fn cqa_0_2s_closed_world_kind_reads_from_yaml() {
+        let data = yaml_targeting(YAML_TARGET)
+            .replace("[lookup]", "[closed_world_negative]")
+            .replace("[r1]", "[r1]\n    unconnected_anchors: [r1]");
+        let b = from_yaml_0_2(&data).unwrap();
+        assert_eq!(
+            b.question("q1").unwrap().answer_kinds,
+            BTreeSet::from([AnswerKind::ClosedWorldNegative])
+        );
+    }
+
+    #[test]
+    fn a_cqa_0_2_yaml_benchmark_keeping_cqa_0_1s_pair_is_refused() {
+        // cqa 0.2 declares no `target_dataset`, so the load reads past it
+        // and the benchmark is refused before its target is chosen.
+        let data = yaml_targeting(YAML_TARGET).replacen("id: b\n", "id: b\ntarget_dataset: d\n", 1);
+        assert_eq!(
+            refusal(from_yaml_0_2(&data)),
+            Refusal::PartlyRead(vec![Unread::UndeclaredField {
+                record: "b".into(),
+                field: "target_dataset".into(),
+                class: "Benchmark".into(),
+            }])
+        );
+    }
+
+    #[test]
+    fn a_cqa_0_2_yaml_benchmark_targeting_two_datasets_is_refused() {
+        let two = format!("{YAML_TARGET}  - dataset: e\n    version: '1'\n");
+        assert_eq!(
+            refusal(from_yaml_targeting(&two)),
+            Refusal::SeveralTargetDatasets {
+                benchmark: "b".into(),
+                count: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn yaml_and_turtle_readers_agree_on_a_cqa_0_2_benchmark() {
+        let ttl = format!(
+            "@prefix cqa: <{CQA}> . @prefix pav: <http://purl.org/pav/> .
+             cqa:b a cqa:Benchmark ; cqa:id \"b\" ;
+               cqa:target_schema \"https://example.org/s/\" ; cqa:target_schema_version \"1\" ;
+               cqa:target_datasets {TARGET} ;
+               cqa:competency_question_answers <{CQA}b/q1> .
+             <{CQA}b/q1> cqa:id \"q1\" ; cqa:question \"one?\" ; cqa:ground_truth \"One.\" ;
+               cqa:answer_kind <{CQA}AnswerKindEnum#lookup> ;
+               cqa:expected_anchors <https://example.org/s/r1> ."
+        );
+        assert_eq!(
+            from_yaml_targeting(YAML_TARGET).unwrap(),
+            Benchmark::from_turtle(&ttl).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_target_written_as_a_bare_string_is_refused_naming_it() {
+        assert_eq!(
+            refusal(from_yaml_targeting("  - d\n")),
+            Refusal::NotATargetDataset("d".into())
+        );
+    }
+
+    #[test]
+    fn a_yaml_target_dataset_with_two_versions_is_refused_as_the_turtle_is() {
+        let target = YAML_TARGET.replace("version: '1'", "version: ['1', '2']");
+        assert_eq!(
+            refusal(from_yaml_targeting(&target)),
+            Refusal::MoreThanOne {
+                record: "b's target dataset".into(),
+                slot: "version",
+            }
+        );
+    }
+
+    #[test]
+    fn a_stray_field_in_a_yaml_target_dataset_is_refused_naming_the_entry() {
+        let target = format!("{YAML_TARGET}    name: x\n");
+        assert_eq!(
+            refusal(from_yaml_targeting(&target)),
+            Refusal::PartlyRead(vec![Unread::UndeclaredField {
+                record: "b's target dataset".into(),
+                field: "name".into(),
+                class: "TargetDataset".into(),
+            }])
+        );
+    }
+
+    #[test]
+    fn a_kind_spelled_for_the_other_cqa_version_is_refused() {
+        // Each schema permits one spelling, so the other is no kind of
+        // it, as panschema's own check of the benchmark says.
+        let negative = |kind: &str| {
+            yaml_question_with("[lookup]", &format!("[{kind}]"))
+                .replace("[r1]", "[r1]\n    unconnected_anchors: [r1]")
+        };
+        let under_0_1 = refused(&negative("closed_world_negative"));
+        let pair = "target_dataset: d\ntarget_dataset_version: '1'\n";
+        let moved = negative("closed-world-negative")
+            .replace(pair, &format!("target_datasets:\n{YAML_TARGET}"));
+        let under_0_2 = refusal(from_yaml_0_2(&moved));
+        for (refusal, kind) in [
+            (under_0_1, "closed_world_negative"),
+            (under_0_2, "closed-world-negative"),
+        ] {
+            assert_eq!(
+                refusal,
+                Refusal::UnknownAnswerKind {
+                    question: "q1".into(),
+                    kind: kind.into(),
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn cqa_0_1s_closed_world_kind_reads_from_yaml() {
+        let data = yaml_question_with("[lookup]", "[closed-world-negative]")
+            .replace("[r1]", "[r1]\n    unconnected_anchors: [r1]");
+        let b = from_yaml_text(&data).unwrap();
+        assert_eq!(
+            b.question("q1").unwrap().answer_kinds,
+            BTreeSet::from([AnswerKind::ClosedWorldNegative])
+        );
+    }
+
+    #[test]
+    fn a_yaml_target_dataset_without_its_version_is_refused_naming_it() {
+        let target = YAML_TARGET.replace("    version: '1'\n", "");
+        let refusal = refusal(from_yaml_targeting(&target));
+        assert_eq!(refusal, Refusal::missing("b's target dataset", "version"));
+    }
+
     #[test]
     fn a_failed_load_gives_its_warnings_with_its_error() {
         let refusal = Refusal::Load {
@@ -1269,6 +1730,26 @@ competency_question_answers:
                 assert_eq!(AnswerKind::from_iri(&iri), Some(kind), "{iri}");
             }
         }
+    }
+
+    #[test]
+    fn cqa_0_1s_spelling_of_the_closed_world_kind_still_reads() {
+        for sep in ['#', '/'] {
+            let iri = format!("{CQA}AnswerKindEnum{sep}closed-world-negative");
+            assert_eq!(
+                AnswerKind::from_iri(&iri),
+                Some(AnswerKind::ClosedWorldNegative),
+                "{iri}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_report_spells_the_closed_world_kind_as_cqa_0_2_does() {
+        assert_eq!(
+            serde_json::to_string(&AnswerKind::ClosedWorldNegative).unwrap(),
+            "\"closed_world_negative\""
+        );
     }
 
     #[test]

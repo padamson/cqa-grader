@@ -64,8 +64,8 @@ cqa-grader grade --benchmark wine-benchmark.ttl --trace trace.json --format json
 ```text
 wine-benchmark: grading cqa-grader baseline 0.1.0 over worked-example 0.2.1, requiring no wrong answers
   cq-02 lookup                  ok          recall 1.00  precision 0.02  retrieved 46
-  cq-03 closed-world-negative   unanswered  recall 1.00  precision 0.18  retrieved 11
-    closed-world-negative: unconnected anchors reached but the attempt does not assert absence
+  cq-03 closed_world_negative   unanswered  recall 1.00  precision 0.18  retrieved 11
+    closed_world_negative: unconnected anchors reached but the attempt does not assert absence
   cq-04 attribution             ok          recall 1.00  precision 0.06  retrieved 47
   cq-05 synthesis               ok          recall 1.00  precision 0.13  retrieved 47
   cq-06 comparison              ok          recall 1.00  precision 0.09  retrieved 46
@@ -147,7 +147,10 @@ cqa-grader trace-schema
 ```
 
 `graph` names the dataset and version the system ran over, the way the
-benchmark's `target_dataset` and `target_dataset_version` name its target.
+benchmark names its target: the `dataset` and `version` of its one
+`target_datasets` entry (cqa 0.2), or its `target_dataset` and
+`target_dataset_version` (cqa 0.1). A benchmark that targets more than one
+dataset is refused.
 Grading refuses a trace whose `graph` differs (exit code 2), since anchors
 written against one version of a dataset say nothing about retrieval over
 another. A pre-release counts as its release, so a graph built on `main` as
@@ -169,10 +172,10 @@ names. All must pass.
 | `attempted` | the trace holds an attempt at the question |
 | `anchors-reached` | `retrieved` ⊇ `expected_anchors` |
 | `citations-grounded` | `cited` ⊆ `retrieved` |
-| `no-false-absence` | the attempt `asserts_absence` only if the question is a `closed-world-negative` |
+| `no-false-absence` | the attempt `asserts_absence` only if the question is a `closed_world_negative` |
 | `lookup`, `comparison`, `synthesis` | `anchors-reached` passes (no further check until cqa declares expected values) |
 | `attribution` | `cited` ⊇ `expected_citations`, and `cited` is not empty |
-| `closed-world-negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
+| `closed_world_negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
 | `citations-rest` | `cited` ⊇ `expected_citations`, for a question with citations that does not name `attribution` |
 
 Each question ends in one of four outcomes, and the summary counts them.

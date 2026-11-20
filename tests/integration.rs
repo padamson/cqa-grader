@@ -42,7 +42,7 @@ fn the_baseline_leaves_only_closed_world_negatives_unanswered() {
             .collect();
         let negative = r.answer_kinds.contains(&AnswerKind::ClosedWorldNegative);
         let (expected_failed, expected_outcome): (&[&str], Outcome) = if negative {
-            (&["closed-world-negative"], Outcome::Unanswered)
+            (&["closed_world_negative"], Outcome::Unanswered)
         } else {
             (&[], Outcome::Passed)
         };
@@ -55,7 +55,7 @@ fn the_baseline_leaves_only_closed_world_negatives_unanswered() {
 fn the_baseline_never_reads_the_key() {
     // Same questions, everything but the id and the text blanked: the
     // trace must not change. Answer kinds are blanked too, or a baseline
-    // that asserted absence because the key says closed-world-negative
+    // that asserted absence because the key says closed_world_negative
     // would pass; so are the target pins, or one that copied the
     // benchmark's dataset into its trace would.
     let (benchmark, baseline) = wine();

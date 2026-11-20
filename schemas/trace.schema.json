@@ -86,11 +86,11 @@
       "type": "object",
       "properties": {
         "dataset": {
-          "description": "The dataset, as the benchmark's `cqa:target_dataset` would name it\n(for wine, `worked-example`).",
+          "description": "The dataset, as the benchmark's target names it: the `cqa:dataset`\nof its one `cqa:target_datasets` entry, or cqa 0.1's\n`cqa:target_dataset` (for wine, `worked-example`).",
           "type": "string"
         },
         "dataset_version": {
-          "description": "The dataset's version, as `cqa:target_dataset_version` would give\nit. A pre-release (`0.2.1-dev`) is graded as its release (`0.2.1`).",
+          "description": "The dataset's version, as the entry's `pav:version` or cqa 0.1's\n`cqa:target_dataset_version` gives it. A pre-release (`0.2.1-dev`)\nis graded as its release (`0.2.1`).",
           "type": "string"
         }
       },

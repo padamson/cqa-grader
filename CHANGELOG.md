@@ -18,6 +18,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   refused rather than graded in part. `grade` and `baseline` read it with
   `--benchmark B.yaml --cqa-schema S`. Without `--cqa-schema` they read
   Turtle, and they refuse a `.yaml` or `.yml` benchmark given without it.
+- Both readers take a benchmark written for cqa 0.2 as well as one written
+  for 0.1. The target is the one entry of `target_datasets` (a
+  `TargetDataset` with `dataset` and `version`) or the 0.1 pair
+  `target_dataset` and `target_dataset_version`. A benchmark that lists
+  more than one target dataset is refused, as is one that names its
+  target both ways. The closed-world kind reads as `closed_world_negative`
+  or as 0.1's `closed-world-negative`: from the YAML, whichever the schema
+  it is read against permits, and from the Turtle, either. Reports spell
+  it `closed_world_negative`, in text and in JSON.
 - A refused benchmark is `Error::Benchmark(Refusal)`, with a variant for
   each reason and, for a partial LinkML load, an `Unread` for each part
   the load read past.

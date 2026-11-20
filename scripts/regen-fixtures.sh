@@ -35,15 +35,23 @@ describe() {
   echo "$v"
 }
 
+# provenance FILE LINE...: write FILE, recording what a generate ran from.
+provenance() {
+  local file="$1"
+  shift
+  { echo "# Written by scripts/regen-fixtures.sh; do not edit."; printf '%s\n' "$@"; } > "$file"
+}
+
 wine="$(describe ../ontology-authoring-template)"
 cqa="$(describe ../cqa-schema)"
 version="$("$panschema" --version)"
 
+# cqa's schema alone (see its manifest for why), first, so it is current
+# even while the graphs below cannot be generated.
+(cd tests/fixtures/cqa-0.2 && "$panschema" generate --strict)
+provenance tests/fixtures/cqa-0.2/PROVENANCE "cqa-schema $cqa" "$version"
+
 "$panschema" generate --strict
 
-cat > tests/fixtures/PROVENANCE <<EOF
-# Written by scripts/regen-fixtures.sh; do not edit.
-ontology-authoring-template $wine
-cqa-schema $cqa
-$version
-EOF
+provenance tests/fixtures/PROVENANCE \
+  "ontology-authoring-template $wine" "cqa-schema $cqa" "$version"
