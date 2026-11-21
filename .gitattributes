@@ -5,3 +5,7 @@ schemas/*.json text eol=lf
 # The test graphs are panschema output, compared byte for byte with a fresh
 # generation by the Dogfood workflow.
 tests/fixtures/*.ttl text eol=lf
+
+# The benchmark's LinkML sources are generated too, and a test rewrites
+# whole lines of wine's benchmark, newline included.
+tests/fixtures/**/*.yaml text eol=lf
