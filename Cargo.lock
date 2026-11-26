@@ -517,9 +517,9 @@ dependencies = [
 
 [[package]]
 name = "panschema-model"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da28a65184b45984f60c6dee9a8d66686fa200a815db54e3c534058c006847a2"
+checksum = "9e68ca7976ea0abe5fe385e5072ea11fd433d54d0571e3ebd5a7d6c83e3e2d5d"
 dependencies = [
  "mutants",
  "semver",
