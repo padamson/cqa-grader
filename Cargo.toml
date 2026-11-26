@@ -20,7 +20,7 @@ clap = { version = "4", features = ["derive"] }
 # Same feature set panschema uses: in-memory store only (no rocksdb), and
 # `rdf-12` so the sub-crates agree on the term model.
 oxigraph = { version = "0.5.9", default-features = false, features = ["rdf-12"] }
-panschema-model = "0.4"
+panschema-model = "0.6"
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
