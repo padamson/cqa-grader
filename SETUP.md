@@ -38,10 +38,13 @@ These settings cannot be configured via code and must be set in the GitHub UI.
   - `Lint` — fmt, clippy, doctest, cargo doc (ubuntu-only)
   - `Test on ubuntu-latest` — primary CI signal
   - `Test on macos-latest` / `Test on windows-latest` — broader coverage, slower merges
-  - `License & Dependency Check` (advisories too, through cargo-lockpatrol), `Supply Chain Review`
+  - `supply-chain / License & Dependency Check` (advisories too, through cargo-lockpatrol), `supply-chain / Supply Chain Review`
+  - `mutation / Mutation Testing (diff)`
   - `CodeQL`
 
-  **Solo-friendly minimum:** `MSRV Check`, `Lint`, `Test on ubuntu-latest`, `License & Dependency Check`, `Supply Chain Review`. **Full coverage:** add `Test on macos-latest`, `Test on windows-latest`, and `CodeQL`.
+  The `supply-chain /` and `mutation /` prefixes are the calling jobs in `security.yml`; the jobs themselves live in `padamson/rust-ci-workflows`.
+
+  **Solo-friendly minimum:** `MSRV Check`, `Lint`, `Test on ubuntu-latest`, `supply-chain / License & Dependency Check`, `supply-chain / Supply Chain Review`. **Full coverage:** add `Test on macos-latest`, `Test on windows-latest`, and `CodeQL`.
 
   Either click through the UI, or apply via `gh api` (requires `admin:repo` scope — run `gh auth refresh -s admin:repo` first if needed):
 
@@ -55,8 +58,8 @@ These settings cannot be configured via code and must be set in the GitHub UI.
         {"context": "MSRV Check"},
         {"context": "Lint"},
         {"context": "Test on ubuntu-latest"},
-        {"context": "License & Dependency Check"},
-        {"context": "Supply Chain Review"}
+        {"context": "supply-chain / License & Dependency Check"},
+        {"context": "supply-chain / Supply Chain Review"}
       ]
     },
     "enforce_admins": false,

@@ -7,9 +7,11 @@ on:
     tags:
       - 'v*'
 
+# Only what security.yml's shared semver preview sets too: rust-cache keys
+# its cache on the CARGO_* and RUST* variables, so one set here alone keeps
+# the semver gate from restoring the cache the preview saved.
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 # Job-scoped permissions: the default for every job is read-only, and
 # each job that writes names exactly what it writes. A build job running
@@ -105,6 +107,8 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           shared-key: semver-preview
+          # As the preview saves it; a different value changes the key.
+          cache-bin: false
           save-if: false
 
       - name: Install cargo-semver-checks
@@ -154,6 +158,7 @@ jobs:
       attestations: write
     env:
       BINARY: ${{ needs.release-refs.outputs.binary }}
+      RUST_BACKTRACE: 1
     strategy:
       fail-fast: false
       matrix:
@@ -245,9 +250,20 @@ jobs:
             *.zip
           if-no-files-found: error
 
+  # deny, the advisory check, and vet on the tagged commit, with the same
+  # pin and inputs security.yml uses; nothing publishes unless they pass.
+  # They read advisories and imported audits when this job runs, so a
+  # re-run reads them again. Runs beside the build matrix.
+  supply-chain-gates:
+    name: Supply-chain gates
+    needs: [release-refs]
+    uses: padamson/rust-ci-workflows/.github/workflows/supply-chain.yml@07d9be408f21f565a66488d6931b1a39b3f872e0 # v0.2.0
+    with:
+      deny-manifests: crates/site
+
   publish-crates:
     name: Publish to crates.io
-    needs: [semver-checks, build-release]
+    needs: [semver-checks, build-release, supply-chain-gates]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Only release tags can deploy here, and the crates.io publisher names

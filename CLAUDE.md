@@ -173,15 +173,16 @@ V&V sense and is not used here.
 1. Update version in `Cargo.toml`
 2. Update `CHANGELOG.md`
 3. Commit: `git commit -m "Release vX.Y.Z"`
-4. Push the commit, `git push origin main`, and wait for Security & Quality
-   to pass on it (`release.yml` does not check vet or deny itself).
+4. Push the commit, `git push origin main`, and wait for Test and Security
+   & Quality to pass on it.
 5. Tag and push the tag: `git tag vX.Y.Z`, then `git push origin vX.Y.Z`
 
-The tag runs `release.yml`: it refuses a commit that is not on `main`,
-checks the tag against `Cargo.toml` and the CHANGELOG, runs the semver
-gate and the build and tests on four targets, publishes to crates.io
-through Trusted Publishing in the `release` environment, and creates the
-GitHub Release last.
+The tag runs `release.yml`. It refuses a commit that is not on `main`,
+checks the tag against `Cargo.toml` and the CHANGELOG, and runs the semver
+gate, the supply-chain gates (deny, advisories and vet, through the same
+shared workflow `security.yml` calls), and the build and tests on four
+targets. Then it publishes to crates.io through Trusted Publishing in the
+`release` environment, and creates the GitHub Release last.
 
 The first release differs, because crates.io adds a trusted publisher
 only to a crate that exists. After step 4, publish by hand (`cargo

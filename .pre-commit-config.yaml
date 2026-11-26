@@ -98,6 +98,16 @@ repos:
         pass_filenames: false
         files: (Cargo\.toml|Cargo\.lock|deny\.toml)$
 
+      # The same check on crates/site, which CI's deny job runs through
+      # `deny-manifests`. Locked, unlike CI, so a stale lockfile fails with
+      # cargo's message instead of being rewritten mid-commit.
+      - id: cargo-deny-site
+        name: cargo deny (site)
+        entry: cargo deny --locked --workspace --config deny.toml --manifest-path crates/site/Cargo.toml check bans licenses sources
+        language: system
+        pass_filenames: false
+        files: ^(crates/site/Cargo\.(toml|lock)|deny\.toml)$
+
       - id: cargo-vet
         name: cargo vet
         description: Verify dependency supply chain audits
