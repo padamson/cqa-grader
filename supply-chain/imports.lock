@@ -44,8 +44,8 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.anyhow]]
-version = "1.0.104"
-when = "2026-07-18"
+version = "1.0.105"
+when = "2026-11-23"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -72,8 +72,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.clap]]
-version = "4.6.7"
-when = "2026-09-14"
+version = "4.6.9"
+when = "2026-11-20"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -86,8 +86,8 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.clap_derive]]
-version = "4.6.7"
-when = "2026-09-14"
+version = "4.6.9"
+when = "2026-11-20"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -249,11 +249,9 @@ when = "2026-10-18"
 trusted-publisher = "github:oxigraph/oxigraph"
 
 [[publisher.panschema-model]]
-version = "0.4.0"
-when = "2026-09-27"
-user-id = 366126
-user-login = "padamson"
-user-name = "Paul Adamson"
+version = "0.6.0"
+when = "2026-11-14"
+trusted-publisher = "github:padamson/panschema"
 
 [[publisher.parking_lot_core]]
 version = "0.9.12"

@@ -233,7 +233,7 @@ end = "2027-11-08"
 
 [[trusted.panschema-model]]
 criteria = "safe-to-deploy"
-user-id = 366126 # Paul Adamson (padamson)
+user-id = 366126
 start = "2026-09-27"
 end = "2027-11-08"
 
