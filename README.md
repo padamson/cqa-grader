@@ -39,6 +39,21 @@ always gets the same grade and it can gate CI. Judging a prose answer
 against `ground_truth` needs a judge and is not built yet; the trace
 carries an `answer` field for when it is.
 
+A cqa 0.2 key can also give expected values: the value a record carries
+at a named slot. panschema checks those against the graph, and this tier
+does not compare them with the values an answer states. Where a question
+is ordered by one of those slots, checking the order in which an answer
+gives its records is planned for this tier.
+
+panschema and cqa-grader divide the work at the trace. `panschema verify
+--strict` checks a graph and its key at rest (every anchor resolves, every
+absence the key claims holds, every expected value matches) and never
+reads a trace. cqa-grader grades what a system answered and never decides
+whether the key is true. The baseline is the one place the two overlap:
+with no system under test, "a naive retriever reaches every anchor" is a
+claim about the graph, so a graph's repository runs the baseline in CI
+beside `verify --strict`.
+
 ## Installation
 
 ```bash
