@@ -40,3 +40,13 @@ fn a_tag_for_another_version_still_prints_the_sha() {
         "0.1.0 (abc1234)"
     );
 }
+
+// The release tag matches whole: a pre-release tag that starts with it is
+// a build to tell apart from the release, not the release.
+#[test]
+fn a_pre_release_tag_still_prints_the_sha() {
+    assert_eq!(
+        build_id("0.1.0", Some("abc1234"), &["v0.1.0-rc.1"]),
+        "0.1.0 (abc1234)"
+    );
+}

@@ -95,6 +95,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - `--version` names the commit a binary was built from, as
   `0.1.0 (27f7f11)`. It prints the bare version when the build's checkout
   has the tag `v0.1.0` at HEAD, or when there is no checkout (a crates.io
-  install).
+  install). `cargo install --git <repo> --tag v0.1.0` still prints the
+  commit, because cargo's checkout carries no tags.
 
 [Unreleased]: https://github.com/padamson/cqa-grader/commits/main
