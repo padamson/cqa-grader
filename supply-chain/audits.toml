@@ -57,6 +57,12 @@ user-id = 539 # Josh Stone (cuviper)
 start = "2019-05-22"
 end = "2027-11-08"
 
+[[trusted.bitflags]]
+criteria = "safe-to-deploy"
+user-id = 3204 # Ashley Mannix (KodrAus)
+start = "2019-05-02"
+end = "2027-11-27"
+
 [[trusted.bstr]]
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)

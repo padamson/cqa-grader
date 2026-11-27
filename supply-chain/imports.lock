@@ -64,6 +64,13 @@ user-id = 539
 user-login = "cuviper"
 user-name = "Josh Stone"
 
+[[publisher.bitflags]]
+version = "2.13.1"
+when = "2026-07-15"
+user-id = 3204
+user-login = "KodrAus"
+user-name = "Ashley Mannix"
+
 [[publisher.bstr]]
 version = "1.13.1"
 when = "2026-08-10"

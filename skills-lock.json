@@ -5,7 +5,8 @@
       "source": "padamson/panschema",
       "sourceType": "github",
       "skillPath": "skills/panschema-usage/SKILL.md",
-      "computedHash": "51c36c1e4195049fd5d9f5f0ac838ff0e1aed9cf9b7c76bb4670ec0b14730b60"
+      "computedHash": "4f33cff38e502752970b81a01e8eb6100498bc5b7305205773ff5bac6713bbc4",
+      "commit": "ea41109dc18a42eeab7fe7d13ae53f314c1a8348"
     }
   }
 }

@@ -28,10 +28,6 @@ url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/
 [policy.cqa-grader]
 audit-as-crates-io = false
 
-[[exemptions.bitflags]]
-version = "2.13.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.block-buffer]]
 version = "0.12.1"
 criteria = "safe-to-deploy"

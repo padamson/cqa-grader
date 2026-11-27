@@ -44,7 +44,9 @@ if [[ $# -gt 0 && "$1" == "--" ]]; then
   shift
 fi
 
-DIFF="$(mktemp -t mutants.XXXXXX.diff)"
+# Under $TMPDIR, which the sandbox can write: `mktemp -t` on macOS writes
+# to /var/folders whatever $TMPDIR says. BSD mktemp wants the X's last.
+DIFF="$(mktemp "${TMPDIR:-/tmp}/mutants.XXXXXX")"
 trap 'rm -f "$DIFF"' EXIT
 
 git diff "${BASE}..HEAD" > "$DIFF"
