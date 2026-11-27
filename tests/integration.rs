@@ -1,6 +1,8 @@
 //! The baseline against wine, end to end through the public API.
 
-use cqa_grader::{AnswerKind, Baseline, Benchmark, Outcome, Require, grade};
+use std::collections::BTreeSet;
+
+use cqa_grader::{AnswerKind, Baseline, Benchmark, Order, Outcome, Require, grade};
 
 mod common;
 
@@ -74,6 +76,11 @@ fn the_baseline_never_reads_the_key() {
         q.expected_citations.clear();
         q.unconnected_anchors.clear();
         q.connecting_class = None;
+        // Wine orders no question, so a blank order would change nothing.
+        q.order = Some(Order {
+            slot: "rank".into(),
+            tiers: vec![BTreeSet::from(["https://example.org/r".to_string()])],
+        });
     }
     let blinded = baseline.run(&blind, benchmark.target_graph(), 1).unwrap();
     assert_eq!(honest, blinded);

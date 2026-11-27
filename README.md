@@ -43,7 +43,10 @@ A cqa 0.2 key can also give expected values: the value a record carries
 at a named slot. panschema checks those against the graph, and this tier
 does not compare them with the values an answer states. Where a question
 is ordered by one of those slots, checking the order in which an answer
-gives its records is planned for this tier.
+gives its records is planned for this tier. The grader already reads the
+order, comparing the values as numbers until it reads them by the slot's
+range, so a key whose values at that slot are not all numbers is refused
+with exit code 2.
 
 panschema and cqa-grader divide the work at the trace. `panschema verify
 --strict` checks a graph and its key at rest (every anchor resolves, every

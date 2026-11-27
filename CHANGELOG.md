@@ -27,6 +27,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   or as 0.1's `closed-world-negative`: from the YAML, whichever the schema
   it is read against permits, and from the Turtle, either. Reports spell
   it `closed_world_negative`, in text and in JSON.
+- Both readers read an ordered question's order (`Question::order`): cqa
+  0.2's `ordered_by`, and the records its expected values at that slot
+  name, ranked by their values as decimal numbers compared exactly, with
+  equal values tied. A key is refused when a value at the slot is not a
+  number, when a record has two values there, when fewer than two records
+  have one, or when a ranked record is not among the question's anchors.
+  Expected values at other slots, and on a question with no order, are
+  not read.
 - A refused benchmark is `Error::Benchmark(Refusal)`, with a variant for
   each reason and, for a partial LinkML load, an `Unread` for each part
   the load read past.

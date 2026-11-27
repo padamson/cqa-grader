@@ -170,25 +170,27 @@ fn a_partial_read_refusal_is_printed_once() {
     assert_eq!(stderr.matches("`expected_anchor`").count(), 1, "{stderr}");
 }
 
-#[test]
-fn wines_benchmark_moved_to_cqa_0_2_grades_the_same() {
-    // Wine publishes its benchmark for cqa 0.1. This is the same key in
-    // 0.2's shape, read as a user's would be: from a file, against cqa's
-    // 0.2 schema.
+/// Wine's benchmark in cqa 0.2's shape. Wine publishes it for cqa 0.1.
+fn wine_benchmark_0_2() -> String {
     let pair = "target_dataset: worked-example\ntarget_dataset_version: 0.2.1\n";
     let entry = "target_datasets:\n  - dataset: worked-example\n    version: 0.2.1\n";
     let kind = "- closed-world-negative";
     let written = common::fixture_text("wine-benchmark.yaml");
     assert!(
         written.contains(pair) && written.contains(kind),
-        "wine's benchmark is no longer written for cqa 0.1; this test goes with the 0.1 reading"
+        "wine's benchmark is no longer written for cqa 0.1; the tests of the 0.2 shape go with the 0.1 reading"
     );
+    written
+        .replace(pair, entry)
+        .replace(kind, "- closed_world_negative")
+}
+
+#[test]
+fn wines_benchmark_moved_to_cqa_0_2_grades_the_same() {
+    // Read as a user's would be: from a file, against cqa's 0.2 schema.
     let dir = tempdir();
     let moved = dir.join("wine-benchmark-0.2.yaml");
-    let text = written
-        .replace(pair, entry)
-        .replace(kind, "- closed_world_negative");
-    std::fs::write(&moved, text).unwrap();
+    std::fs::write(&moved, wine_benchmark_0_2()).unwrap();
     let trace = baseline_trace(&dir, &[&common::fixture_path("wine.ttl")]);
     let mut from_moved = cli();
     from_moved
@@ -197,6 +199,36 @@ fn wines_benchmark_moved_to_cqa_0_2_grades_the_same() {
         .args(["--cqa-schema", &fixture("cqa-0.2/cqa.yaml")])
         .args(["--trace", trace.to_str().unwrap()]);
     assert_eq!(report_json(&mut from_moved), grade_json(&trace, &[]));
+}
+
+#[test]
+fn an_order_over_values_that_are_not_numbers_is_a_usage_error() {
+    // The grader orders by number until it reads values by the slot's
+    // range, and `good` sorted as text would grade an order no one wrote.
+    let anchors = "    expected_anchors:\n      - napa-zinfandel-2018\n";
+    let ordered = "    ordered_by: verdict\n    expected_values:\n      \
+                   - {record: va-napa-zin-2018, slot: verdict, value: good}\n      \
+                   - {record: va-napa-zin-2017, slot: verdict, value: '1'}\n";
+    let moved = wine_benchmark_0_2();
+    assert_eq!(
+        moved.matches(anchors).count(),
+        1,
+        "cq-07's anchors are not where this test puts its order"
+    );
+    let dir = tempdir();
+    let key = dir.join("ordered-by-verdict.yaml");
+    std::fs::write(&key, moved.replace(anchors, &format!("{ordered}{anchors}"))).unwrap();
+    cli()
+        .args(["grade", "--benchmark", key.to_str().unwrap()])
+        .args(["--cqa-schema", &fixture("cqa-0.2/cqa.yaml")])
+        .args(["--baseline", "--graph", &fixture("wine.ttl")])
+        .assert()
+        .code(2)
+        .stderr(
+            predicate::str::contains("cq-07")
+                .and(predicate::str::contains("`verdict`"))
+                .and(predicate::str::contains("`good`")),
+        );
 }
 
 /// `--benchmark` and `--cqa-schema` naming wine's benchmark by its LinkML

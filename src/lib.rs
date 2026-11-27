@@ -35,7 +35,7 @@ mod rdf;
 pub mod trace;
 
 pub use baseline::Baseline;
-pub use benchmark::{AnswerKind, Benchmark, Question, Refusal, Unread};
+pub use benchmark::{AnswerKind, Benchmark, Order, Question, Refusal, Unread};
 pub use grade::{Check, Outcome, QuestionResult, Report, Require, Summary, grade};
 pub use trace::{Attempt, Graph, System, TRACE_FORMAT, Trace};
 

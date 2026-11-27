@@ -11,6 +11,7 @@
 //! panschema does when it writes the Turtle, so this crate still never has
 //! to know how.
 
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -24,9 +25,9 @@ use panschema_model::yaml_reader::YamlReader;
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
 use crate::rdf::{load_turtle, select};
 use crate::trace::Graph;
+use crate::{Error, Result};
 
 const CQA: &str = "https://w3id.org/cqa/";
 
@@ -103,6 +104,19 @@ pub struct Question {
     pub unconnected_anchors: BTreeSet<String>,
     /// The class a joining record would belong to, if the key narrows the claim.
     pub connecting_class: Option<String>,
+    /// The order a correct answer gives its records in, if the key asks for one.
+    pub order: Option<Order>,
+}
+
+/// An ordered question's order: cqa's `ordered_by`, with the records its
+/// expected values at that slot name, ranked by those values as numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Order {
+    /// The slot whose values order the answer, by the target schema's name for it.
+    pub slot: String,
+    /// The records in ascending order of their values, one tier per value,
+    /// so records whose values are equal share a tier.
+    pub tiers: Vec<BTreeSet<String>>,
 }
 
 /// A named set of questions, evaluated against one knowledge graph.
@@ -236,6 +250,55 @@ pub enum Refusal {
     /// Two questions share an id.
     #[error("{0}: more than one question has this id")]
     DuplicateQuestion(String),
+    /// An `expected_values` value that names no `ExpectedValue` record: in
+    /// the YAML, a bare string where the entry belongs.
+    #[error(
+        "{0}: not an ExpectedValue; an entry of expected_values gives its record, slot and value"
+    )]
+    NotAnExpectedValue(String),
+    /// A value at an ordering slot that does not read as a number. Until the
+    /// grader reads a value by its slot's range it compares an order's
+    /// values as numbers, and text sorted as text would put 10 before 9.
+    #[error(
+        "{question}: ordered by `{slot}`, and its value `{value}` there is not a number; \
+         the grader orders by number until it reads values by the slot's range"
+    )]
+    NotANumber {
+        /// The question's id.
+        question: String,
+        /// The ordering slot.
+        slot: String,
+        /// The value as written.
+        value: String,
+    },
+    /// One record given two different values at the ordering slot, so the
+    /// key puts it in two places.
+    #[error("{question}: <{record}> has two values at the slot the question is ordered by")]
+    TwoValuesToOrderBy {
+        /// The question's id.
+        question: String,
+        /// The record.
+        record: String,
+    },
+    /// An ordered question that ranks a record outside its anchors. cqa
+    /// asks that every record an expected value names be among them, and
+    /// an answer need not retrieve any other.
+    #[error("{question}: ordered over <{record}>, which is not among its expected_anchors")]
+    RankedOutsideAnchors {
+        /// The question's id.
+        question: String,
+        /// The record.
+        record: String,
+    },
+    /// An ordered question with fewer than two records valued at its
+    /// ordering slot, so there is no order to check.
+    #[error("{question}: ordered by `{slot}`, and fewer than two records have a value there")]
+    NothingToOrder {
+        /// The question's id.
+        question: String,
+        /// The ordering slot.
+        slot: String,
+    },
 }
 
 /// What a LinkML load read past, as `panschema-model` records it.
@@ -330,20 +393,40 @@ impl Benchmark {
                 .iter()
                 .filter(move |i| i.types.iter().any(|t| t == class))
         };
-        // panschema mints a target entry an id the author never wrote, so
-        // a field the load read past in one is reported under the name
-        // every other refusal gives the entry.
-        let named = |record: &String| match of_type("Benchmark").next() {
-            Some(b) if of_type("TargetDataset").any(|i| i.id == *record) => entry_name(&b.id),
-            _ => record.clone(),
-        };
+        // panschema mints target entries and expected values ids the author
+        // never wrote, so what the load read past in one is reported under
+        // the name every other refusal gives the entry. A bare string where
+        // an entry belongs is no entry, and keeps the name it has.
+        let mut minted: BTreeMap<&str, String> = BTreeMap::new();
+        for (owners, slot, entries, name) in [
+            (
+                "Benchmark",
+                "target_datasets",
+                "TargetDataset",
+                entry_name as fn(&str) -> String,
+            ),
+            (
+                "CompetencyQuestionAnswer",
+                "expected_values",
+                "ExpectedValue",
+                value_name,
+            ),
+        ] {
+            for owner in of_type(owners) {
+                let held = values(owner, slot).unwrap_or_default();
+                for entry in of_type(entries).filter(|e| held.contains(&e.id)) {
+                    minted.insert(&entry.id, name(&owner.id));
+                }
+            }
+        }
+        let named = |record: &String| minted.get(record.as_str()).unwrap_or(record).clone();
         let unread: Vec<Unread> = loaded
             .warnings
             .iter()
             .cloned()
             .map(Unread::Warning)
             .chain(set.expansion_gaps.iter().map(|g| Unread::Unexpanded {
-                record: g.record.clone(),
+                record: named(&g.record),
                 slot: g.slot.clone(),
                 base_slot: g.base_slot.clone(),
             }))
@@ -383,6 +466,9 @@ impl Benchmark {
         };
 
         let records: BTreeMap<&str, &Instance> = of_type("CompetencyQuestionAnswer")
+            .map(|i| (i.id.as_str(), i))
+            .collect();
+        let expected: BTreeMap<&str, &Instance> = of_type("ExpectedValue")
             .map(|i| (i.id.as_str(), i))
             .collect();
         // Listing a question twice lists it once, as the Turtle's edges are a set.
@@ -432,6 +518,7 @@ impl Benchmark {
                 expected_citations: anchors("expected_citations")?,
                 unconnected_anchors: anchors("unconnected_anchors")?,
                 connecting_class: single(record, "connecting_class")?,
+                order: yaml_order(&loaded.schema, record, &id, &expected)?,
                 id,
             });
         }
@@ -587,6 +674,7 @@ impl Benchmark {
                     expected_citations: BTreeSet::new(),
                     unconnected_anchors: BTreeSet::new(),
                     connecting_class: None,
+                    order: None,
                 },
             );
         }
@@ -634,6 +722,7 @@ impl Benchmark {
                 }
             }
         }
+        turtle_orders(store, &iri, &mut questions)?;
 
         Benchmark {
             id,
@@ -678,6 +767,14 @@ impl Benchmark {
                 && question.unconnected_anchors.is_empty()
             {
                 return Err(Refusal::NegativeWithoutUnconnectedAnchors(question.id.clone()).into());
+            }
+            let mut ranked = question.order.iter().flat_map(|o| o.tiers.iter().flatten());
+            if let Some(outside) = ranked.find(|r| !question.expected_anchors.contains(*r)) {
+                return Err(Refusal::RankedOutsideAnchors {
+                    question: question.id.clone(),
+                    record: outside.clone(),
+                }
+                .into());
             }
         }
 
@@ -759,46 +856,389 @@ fn entry_name(benchmark: &str) -> String {
 }
 
 /// The entries of `cqa:target_datasets` on the benchmark at `iri`, one per
-/// node. The nodes are blank, which a row leaves out, so each is a group,
-/// and a node with two names or two versions is refused here, as is a
-/// bare literal where a node belongs, which the YAML reader refuses too.
-/// A node need not be typed, as a question need not be.
+/// node.
 fn turtle_target_entries(store: &Store, iri: &str, benchmark: &str) -> Result<Vec<TargetEntry>> {
+    let name = entry_name(benchmark);
+    turtle_entries(
+        store,
+        &format!("VALUES ?s {{ <{iri}> }}"),
+        "target_datasets",
+        [("cqa:dataset", "dataset"), ("pav:version", "version")],
+    )?
+    .iter()
+    .map(|entry| match &entry.stray {
+        Some(stray) => Err(Refusal::NotATargetDataset(stray.clone()).into()),
+        None => Ok(TargetEntry {
+            dataset: entry.part(&name, "dataset")?,
+            version: entry.part(&name, "version")?,
+        }),
+    })
+    .collect()
+}
+
+/// One entry of an inlined slot as the Turtle holds it. Nothing is refused
+/// until a part is read, so a caller reads only the parts a check needs.
+struct TurtleEntry<const N: usize> {
+    /// The subject the entry is on.
+    subject: String,
+    /// What stands where an entry belongs, when this is none: a literal's
+    /// text, or in angle brackets the IRI of a node with none of the
+    /// parts, which is how panschema writes a bare string.
+    stray: Option<String>,
+    /// For each part: the slot a refusal names, how many values the node
+    /// has there, and one of them, unless it is a blank node.
+    parts: [(&'static str, String, Option<String>); N],
+}
+
+impl<const N: usize> TurtleEntry<N> {
+    /// The entry's one value at the part `slot`, if it has one. A refusal
+    /// names the entry `name`.
+    fn part(&self, name: &str, slot: &'static str) -> Result<Option<String>> {
+        let found = self.parts.iter().find(|(part, ..)| *part == slot);
+        match found.map(|(_, count, value)| (count.as_str(), value)) {
+            None | Some(("0", _)) => Ok(None),
+            Some(("1", Some(value))) => Ok(Some(value.clone())),
+            Some(("1", None)) => Err(Refusal::NotText {
+                record: name.into(),
+                slot,
+                kind: "a blank node".into(),
+            }
+            .into()),
+            Some(_) => Err(Refusal::MoreThanOne {
+                record: name.into(),
+                slot,
+            }
+            .into()),
+        }
+    }
+}
+
+/// The entries of `slot` on each subject the pattern `subjects` binds to
+/// `?s`, with each of `parts`: a predicate, and the slot a refusal names.
+/// An entry is a blank node, which a row leaves out, so each is a group.
+/// It need not be typed, as a question need not be.
+fn turtle_entries<const N: usize>(
+    store: &Store,
+    subjects: &str,
+    slot: &str,
+    parts: [(&str, &'static str); N],
+) -> Result<Vec<TurtleEntry<N>>> {
+    let mut projected = String::new();
+    let mut optional = String::new();
+    for (i, (predicate, _)) in parts.iter().enumerate() {
+        projected.push_str(&format!(
+            " (SAMPLE(?v{i}) AS ?value{i}) (COUNT(DISTINCT ?v{i}) AS ?count{i})"
+        ));
+        optional.push_str(&format!(" OPTIONAL {{ ?e {predicate} ?v{i} }}"));
+    }
     let rows = select(
         store,
         &format!(
             "PREFIX cqa: <{CQA}> PREFIX pav: <http://purl.org/pav/>
-             SELECT ?t (isLiteral(?t) AS ?literal)
-                    (SAMPLE(?d) AS ?dataset) (COUNT(DISTINCT ?d) AS ?datasets)
-                    (SAMPLE(?v) AS ?version) (COUNT(DISTINCT ?v) AS ?versions)
-             WHERE {{
-               <{iri}> cqa:target_datasets ?t .
-               OPTIONAL {{ ?t cqa:dataset ?d }}
-               OPTIONAL {{ ?t pav:version ?v }}
-             }}
-             GROUP BY ?t"
+             SELECT ?s ?e (isLiteral(?e) AS ?literal){projected}
+             WHERE {{ {subjects} ?s cqa:{slot} ?e .{optional} }}
+             GROUP BY ?s ?e"
         ),
     )?;
-    rows.iter()
-        .map(|row| {
-            if row.require("literal")? == "true" {
-                return Err(Refusal::NotATargetDataset(row.require("t")?).into());
+    let mut entries = Vec::new();
+    for row in rows {
+        let mut read = Vec::new();
+        for (i, (_, part)) in parts.iter().enumerate() {
+            read.push((
+                *part,
+                row.require(&format!("count{i}"))?,
+                row.get(&format!("value{i}")),
+            ));
+        }
+        let partless = read.iter().all(|(_, count, _)| count == "0");
+        let stray = match row.get("e") {
+            Some(text) if row.require("literal")? == "true" => Some(text),
+            Some(iri) if partless => Some(format!("<{iri}>")),
+            _ => None,
+        };
+        let mut read = read.into_iter();
+        entries.push(TurtleEntry {
+            subject: row.require("s")?,
+            stray,
+            parts: std::array::from_fn(|_| read.next().unwrap_or_default()),
+        });
+    }
+    Ok(entries)
+}
+
+/// How a refusal names an entry of a question's `expected_values`, which
+/// has no id of its own in either form.
+fn value_name(question: &str) -> String {
+    format!("{question}'s expected value")
+}
+
+/// A decimal number as a key writes it (`-0.5`, `10`, `1e3`), compared
+/// exactly: a float would tie values that differ past its precision.
+///
+/// Its value is `0.d₁d₂…` × 10^`exponent`, with no leading or trailing
+/// zero digit, so equal numbers are equal values. Zero has no digits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Decimal {
+    negative: bool,
+    digits: String,
+    exponent: i64,
+}
+
+impl Decimal {
+    /// A sign, digits with at most one decimal point, and an optional
+    /// exponent; `None` for anything else, `NaN` and `inf` included.
+    fn parse(text: &str) -> Option<Self> {
+        let (negative, unsigned) = match text.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, text.strip_prefix('+').unwrap_or(text)),
+        };
+        let (mantissa, shift) = match unsigned.split_once(['e', 'E']) {
+            Some((m, e)) => (m, e.parse::<i64>().ok()?),
+            None => (unsigned, 0),
+        };
+        let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let all = format!("{int}{frac}");
+        if all.is_empty() || !all.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let lead = all.bytes().take_while(|b| *b == b'0').count();
+        let digits = all[lead..].trim_end_matches('0').to_owned();
+        if digits.is_empty() {
+            return Some(Decimal {
+                negative: false,
+                digits,
+                exponent: 0,
+            });
+        }
+        let exponent = (int.len() as i64 - lead as i64).checked_add(shift)?;
+        Some(Decimal {
+            negative,
+            digits,
+            exponent,
+        })
+    }
+
+    /// -1, 0 or 1.
+    fn sign(&self) -> i8 {
+        match (self.digits.is_empty(), self.negative) {
+            (true, _) => 0,
+            (false, true) => -1,
+            (false, false) => 1,
+        }
+    }
+}
+
+impl Ord for Decimal {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let magnitude = || {
+            self.exponent
+                .cmp(&other.exponent)
+                .then_with(|| self.digits.cmp(&other.digits))
+        };
+        match self.sign().cmp(&other.sign()) {
+            std::cmp::Ordering::Equal if self.negative => magnitude().reverse(),
+            std::cmp::Ordering::Equal => magnitude(),
+            unequal => unequal,
+        }
+    }
+}
+
+impl PartialOrd for Decimal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// The record and value of one expected value, if it is at `slot`, read
+/// through `part`. The slot is read first and the rest only at `slot`, so
+/// a part no check reads is never refused. A refusal names the entry
+/// `name`.
+fn at_slot(
+    slot: &str,
+    name: &str,
+    part: impl Fn(&'static str) -> Result<Option<String>>,
+) -> Result<Option<(String, String)>> {
+    let need = |asked: &'static str| -> Result<String> {
+        Ok(part(asked)?.ok_or_else(|| Refusal::missing(name, asked))?)
+    };
+    if need("slot")? != slot {
+        return Ok(None);
+    }
+    Ok(Some((need("record")?, need("value")?)))
+}
+
+/// The order of the question `question`, ordered by `slot`, from each of
+/// its expected values as [`at_slot`] read it. Both readers end here, so
+/// they refuse the same keys.
+fn order_of(
+    question: &str,
+    slot: String,
+    read: Vec<Result<Option<(String, String)>>>,
+) -> Result<Order> {
+    let mut faults = Vec::new();
+    let mut ranked = Vec::new();
+    for entry in read {
+        match entry {
+            Ok(found) => ranked.extend(found),
+            Err(fault) => faults.push(fault),
+        }
+    }
+    // The readers meet the entries in different orders. Of several faults
+    // this gives the first by its message, and the values are sorted, so
+    // both readers refuse a key for the same reason.
+    if let Some(fault) = faults.into_iter().min_by_key(Error::to_string) {
+        return Err(fault);
+    }
+    ranked.sort();
+    let mut values: BTreeMap<String, Decimal> = BTreeMap::new();
+    for (record, value) in ranked {
+        let Some(number) = Decimal::parse(&value) else {
+            return Err(Refusal::NotANumber {
+                question: question.into(),
+                slot,
+                value,
             }
-            for (count, slot) in [("datasets", "dataset"), ("versions", "version")] {
-                if !matches!(row.require(count)?.as_str(), "0" | "1") {
-                    return Err(Refusal::MoreThanOne {
-                        record: entry_name(benchmark),
-                        slot,
-                    }
-                    .into());
+            .into());
+        };
+        match values.entry(record) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(number);
+            }
+            Entry::Occupied(held) if *held.get() != number => {
+                return Err(Refusal::TwoValuesToOrderBy {
+                    question: question.into(),
+                    record: held.key().clone(),
                 }
+                .into());
             }
-            Ok(TargetEntry {
-                dataset: row.get("dataset"),
-                version: row.get("version"),
+            Entry::Occupied(_) => {}
+        }
+    }
+    if values.len() < 2 {
+        return Err(Refusal::NothingToOrder {
+            question: question.into(),
+            slot,
+        }
+        .into());
+    }
+    let mut tiers: BTreeMap<Decimal, BTreeSet<String>> = BTreeMap::new();
+    for (record, number) in values {
+        tiers.entry(number).or_default().insert(record);
+    }
+    Ok(Order {
+        slot,
+        tiers: tiers.into_values().collect(),
+    })
+}
+
+/// The order of the LinkML question `record`, whose id is `id`, if it is
+/// ordered. Its expected values are read only then, since no check reads
+/// them otherwise.
+fn yaml_order(
+    schema: &panschema_model::linkml::SchemaDefinition,
+    record: &Instance,
+    id: &str,
+    expected: &BTreeMap<&str, &Instance>,
+) -> Result<Option<Order>> {
+    let Some(slot) = single(record, "ordered_by")? else {
+        return Ok(None);
+    };
+    let name = value_name(id);
+    let read = values(record, "expected_values")?
+        .iter()
+        .map(|value| {
+            let Some(entry) = expected.get(value.as_str()) else {
+                return Err(Refusal::NotAnExpectedValue(value.clone()).into());
+            };
+            at_slot(&slot, &name, |part| {
+                let read = single_as(entry, &name, part)?;
+                Ok(match part {
+                    "record" => read.map(|r| expand_curie_or_verbatim(schema, &r)),
+                    _ => read,
+                })
             })
         })
-        .collect()
+        .collect();
+    Ok(Some(order_of(id, slot, read)?))
+}
+
+/// Set the order of each ordered question of the benchmark at `iri`, each
+/// question whole and in id order, as the YAML reader takes them.
+fn turtle_orders(
+    store: &Store,
+    iri: &str,
+    questions: &mut BTreeMap<String, Question>,
+) -> Result<()> {
+    let mut slots: BTreeMap<String, Vec<Option<String>>> = BTreeMap::new();
+    for row in select(
+        store,
+        &format!(
+            "PREFIX cqa: <{CQA}>
+             SELECT ?q ?o WHERE {{
+               <{iri}> cqa:competency_question_answers ?q .
+               ?q cqa:ordered_by ?o .
+             }}"
+        ),
+    )? {
+        slots
+            .entry(row.require("q")?)
+            .or_default()
+            .push(row.get("o"));
+    }
+    let mut entries: BTreeMap<String, Vec<TurtleEntry<3>>> = BTreeMap::new();
+    for entry in turtle_entries(
+        store,
+        &format!("<{iri}> cqa:competency_question_answers ?s . ?s cqa:ordered_by ?o ."),
+        "expected_values",
+        [
+            ("cqa:record", "record"),
+            ("cqa:slot", "slot"),
+            ("cqa:value", "value"),
+        ],
+    )? {
+        entries
+            .entry(entry.subject.clone())
+            .or_default()
+            .push(entry);
+    }
+    let mut ordered: Vec<&mut Question> = questions
+        .values_mut()
+        .filter(|q| slots.contains_key(&q.iri))
+        .collect();
+    ordered.sort_by(|a, b| a.id.cmp(&b.id));
+    for question in ordered {
+        let slot = match slots.remove(&question.iri).unwrap_or_default().as_slice() {
+            [Some(slot)] => slot.clone(),
+            // A row leaves a blank node out.
+            [None] => {
+                return Err(Refusal::NotText {
+                    record: question.id.clone(),
+                    slot: "ordered_by",
+                    kind: "a blank node".into(),
+                }
+                .into());
+            }
+            _ => {
+                return Err(Refusal::MoreThanOne {
+                    record: question.id.clone(),
+                    slot: "ordered_by",
+                }
+                .into());
+            }
+        };
+        let name = value_name(&question.id);
+        let read = entries
+            .remove(&question.iri)
+            .unwrap_or_default()
+            .iter()
+            .map(|entry| match &entry.stray {
+                Some(stray) => Err(Refusal::NotAnExpectedValue(stray.clone()).into()),
+                None => at_slot(&slot, &name, |part| entry.part(&name, part)),
+            })
+            .collect();
+        question.order = Some(order_of(&question.id, slot, read)?);
+    }
+    Ok(())
 }
 
 /// A record's values at `slot`, as text: a string literal, or the record a
@@ -1296,7 +1736,12 @@ pub(crate) mod tests {
 
     /// What the load of `data` read past.
     fn unread(data: &str) -> Vec<Unread> {
-        match refused(data) {
+        read_past(from_yaml_text(data))
+    }
+
+    /// What a load read past, where it was refused for reading in part.
+    fn read_past(read: Result<Benchmark>) -> Vec<Unread> {
+        match refusal(read) {
             Refusal::PartlyRead(unread) => unread,
             other => panic!("expected a partial read, got {other:?}"),
         }
@@ -1599,6 +2044,606 @@ competency_question_answers:
         assert_eq!(
             from_yaml_targeting(YAML_TARGET).unwrap(),
             Benchmark::from_turtle(&ttl).unwrap()
+        );
+    }
+
+    /// The test benchmarks' target schema, which bare records expand against.
+    const S: &str = "https://example.org/s/";
+
+    /// Two records ranked at `rank`.
+    const TWO: [(&str, &str, &str); 2] = [("a", "rank", "1"), ("b", "rank", "2")];
+
+    /// The one-question cqa 0.2 benchmark, ordered by `rank` over
+    /// `values`, each a record and its value at `slot`.
+    fn yaml_ordered(values: &[(&str, &str, &str)]) -> String {
+        yaml_key(values, &["rank"])
+    }
+
+    /// `yaml_ordered`, ordered by each of `ordered_by`.
+    fn yaml_key(values: &[(&str, &str, &str)], ordered_by: &[&str]) -> String {
+        let anchors: Vec<&str> = values.iter().map(|(r, _, _)| *r).collect();
+        let entries: String = values
+            .iter()
+            .map(|(r, slot, v)| {
+                format!("      - record: {r}\n        slot: {slot}\n        value: '{v}'\n")
+            })
+            .collect();
+        let ordered_by = match ordered_by {
+            [] => String::new(),
+            [one] => format!("    ordered_by: {one}\n"),
+            many => format!("    ordered_by: [{}]\n", many.join(", ")),
+        };
+        yaml_targeting(YAML_TARGET).replace(
+            "    expected_anchors: [r1]\n",
+            &format!(
+                "    expected_anchors: [{}]\n    expected_values:\n{entries}{ordered_by}",
+                anchors.join(", ")
+            ),
+        )
+    }
+
+    /// The same benchmark as `yaml_ordered(values)`, as panschema writes
+    /// it in Turtle.
+    fn turtle_ordered(values: &[(&str, &str, &str)]) -> String {
+        turtle_key(values, &["rank"])
+    }
+
+    /// `turtle_ordered`, ordered by each of `ordered_by`.
+    fn turtle_key(values: &[(&str, &str, &str)], ordered_by: &[&str]) -> String {
+        let anchors: Vec<String> = values.iter().map(|(r, _, _)| format!("<{S}{r}>")).collect();
+        let entries: Vec<String> = values
+            .iter()
+            .map(|(r, slot, v)| {
+                format!(
+                    "[ a cqa:ExpectedValue ; cqa:record <{S}{r}> ; cqa:slot \"{slot}\" ; cqa:value \"{v}\" ]"
+                )
+            })
+            .collect();
+        let ordered_by: String = ordered_by
+            .iter()
+            .map(|slot| format!(" ; cqa:ordered_by \"{slot}\""))
+            .collect();
+        format!(
+            "@prefix cqa: <{CQA}> . @prefix pav: <http://purl.org/pav/> .
+             cqa:b a cqa:Benchmark ; cqa:id \"b\" ;
+               cqa:target_schema \"{S}\" ; cqa:target_schema_version \"1\" ;
+               cqa:target_datasets {TARGET} ;
+               cqa:competency_question_answers <{CQA}b/q1> .
+             <{CQA}b/q1> cqa:id \"q1\" ; cqa:question \"one?\" ; cqa:ground_truth \"One.\" ;
+               cqa:answer_kind <{CQA}AnswerKindEnum#lookup> ;
+               cqa:expected_anchors {} ;
+               cqa:expected_values {}{ordered_by} .",
+            anchors.join(", "),
+            entries.join(", ")
+        )
+    }
+
+    /// The order both readers give `values`, which they must agree on.
+    fn order(values: &[(&str, &str, &str)]) -> Order {
+        let yaml = from_yaml_0_2(&yaml_ordered(values)).unwrap();
+        let turtle = Benchmark::from_turtle(&turtle_ordered(values)).unwrap();
+        assert_eq!(yaml, turtle, "the readers disagree on {values:?}");
+        yaml.questions[0].order.clone().unwrap()
+    }
+
+    /// `records` as one tier of IRIs into the test benchmark's target.
+    fn tier(records: &[&str]) -> BTreeSet<String> {
+        records.iter().map(|r| format!("{S}{r}")).collect()
+    }
+
+    /// Why both readers refuse `values`, which must be the same refusal.
+    fn order_refused(values: &[(&str, &str, &str)]) -> Refusal {
+        let yaml = refusal(from_yaml_0_2(&yaml_ordered(values)));
+        assert_eq!(
+            yaml,
+            turtle_refused(&turtle_ordered(values)),
+            "the readers refuse {values:?} differently"
+        );
+        yaml
+    }
+
+    #[test]
+    fn an_order_ranks_its_records_by_their_values() {
+        // Listed out of order, as cqa's own example lists them.
+        let order = order(&[
+            ("a", "rank", "0.9"),
+            ("b", "rank", "0.7"),
+            ("c", "rank", "0.85"),
+        ]);
+        assert_eq!(order.slot, "rank");
+        assert_eq!(order.tiers, [tier(&["b"]), tier(&["c"]), tier(&["a"])]);
+    }
+
+    #[test]
+    fn records_whose_values_are_equal_share_a_tier() {
+        // `1` and `1.0` are one number, though not one string.
+        let order = order(&[("a", "rank", "1"), ("b", "rank", "2"), ("c", "rank", "1.0")]);
+        assert_eq!(order.tiers, [tier(&["a", "c"]), tier(&["b"])]);
+    }
+
+    #[test]
+    fn an_order_ranks_by_number_not_by_text() {
+        let order = order(&[("a", "rank", "10"), ("b", "rank", "9"), ("c", "rank", "-1")]);
+        assert_eq!(order.tiers, [tier(&["c"]), tier(&["b"]), tier(&["a"])]);
+    }
+
+    #[test]
+    fn values_at_another_slot_are_not_part_of_the_order() {
+        // `verdict`'s text would be refused if the order read it.
+        let order = order(&[
+            ("a", "rank", "2"),
+            ("b", "rank", "1"),
+            ("c", "verdict", "average"),
+        ]);
+        assert_eq!(order.tiers, [tier(&["b"]), tier(&["a"])]);
+    }
+
+    #[test]
+    fn values_that_differ_past_a_floats_precision_do_not_tie() {
+        // Both parse to the same f64.
+        let order = order(&[
+            ("a", "rank", "9007199254740993"),
+            ("b", "rank", "9007199254740992"),
+        ]);
+        assert_eq!(order.tiers, [tier(&["b"]), tier(&["a"])]);
+    }
+
+    #[test]
+    fn decimals_compare_exactly() {
+        let ascending = [
+            "-1e400",
+            "-10",
+            "-9.5",
+            "-0.1",
+            "0",
+            "1e-400",
+            "0.1",
+            "0.10000000000000001",
+            ".5",
+            "9",
+            "9007199254740992",
+            "9007199254740993",
+            "1e400",
+        ];
+        let parsed: Vec<Decimal> = ascending
+            .iter()
+            .map(|t| Decimal::parse(t).unwrap_or_else(|| panic!("{t:?} is a number")))
+            .collect();
+        for (pair, text) in parsed.windows(2).zip(ascending.windows(2)) {
+            assert!(pair[0] < pair[1], "{} < {}", text[0], text[1]);
+        }
+    }
+
+    #[test]
+    fn one_number_written_differently_is_one_value() {
+        for same in [
+            &["1", "1.0", "+1", "1.", "1e0", "0.1e1", "10E-1", "001"][..],
+            &["0", "-0", "0.000", "0e5", ".0"][..],
+        ] {
+            let first = Decimal::parse(same[0]).unwrap();
+            for text in same {
+                assert_eq!(Decimal::parse(text).as_ref(), Some(&first), "{text}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_question_with_no_order_has_none() {
+        let yaml = from_yaml_0_2(&yaml_key(&TWO, &[])).unwrap();
+        let ttl = turtle_key(&TWO, &[]);
+        assert_eq!(yaml.questions[0].order, None);
+        assert_eq!(
+            Benchmark::from_turtle(&ttl).unwrap().questions[0].order,
+            None,
+            "{ttl}"
+        );
+    }
+
+    /// `data`, with a bare string `zz` where its first expected value
+    /// belongs. panschema writes one into the Turtle as an IRI.
+    fn with_a_bare_value(data: &str) -> String {
+        let (yaml, ttl) = ("    expected_values:\n", "cqa:expected_values ");
+        if data.contains(yaml) {
+            data.replacen(yaml, &format!("{yaml}      - zz\n"), 1)
+        } else {
+            data.replacen(ttl, &format!("{ttl}cqa:zz, "), 1)
+        }
+    }
+
+    #[test]
+    fn the_expected_values_of_a_question_with_no_order_are_not_read() {
+        // A bare string where an entry belongs is refused when it is read.
+        let yaml = with_a_bare_value(&yaml_key(&TWO, &[]));
+        let ttl = with_a_bare_value(&turtle_key(&TWO, &[]));
+        assert!(from_yaml_0_2(&yaml).is_ok(), "{yaml}");
+        assert!(Benchmark::from_turtle(&ttl).is_ok(), "{ttl}");
+    }
+
+    #[test]
+    fn a_value_at_the_ordering_slot_that_is_not_a_number_is_refused_naming_it() {
+        for value in [
+            "first",
+            "NaN",
+            "inf",
+            "",
+            "1e",
+            "0x10",
+            " 1",
+            "1,5",
+            "--1",
+            ".",
+            "1e9999999999999999999",
+        ] {
+            assert_eq!(
+                order_refused(&[("a", "rank", "1"), ("b", "rank", value)]),
+                Refusal::NotANumber {
+                    question: "q1".into(),
+                    slot: "rank".into(),
+                    value: value.into(),
+                },
+                "{value:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_order_with_fewer_than_two_records_at_its_slot_is_refused() {
+        // Values at another slot do not count, and nor does one record
+        // listed twice.
+        for values in [
+            &[("a", "rank", "1"), ("b", "verdict", "2")][..],
+            &[("a", "rank", "1"), ("a", "rank", "1")][..],
+        ] {
+            assert_eq!(
+                order_refused(values),
+                Refusal::NothingToOrder {
+                    question: "q1".into(),
+                    slot: "rank".into(),
+                },
+                "{values:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_record_with_two_values_at_the_ordering_slot_is_refused() {
+        assert_eq!(
+            order_refused(&[("a", "rank", "1"), ("b", "rank", "2"), ("a", "rank", "3")]),
+            Refusal::TwoValuesToOrderBy {
+                question: "q1".into(),
+                record: format!("{S}a"),
+            }
+        );
+    }
+
+    #[test]
+    fn an_expected_value_missing_a_part_is_refused_naming_it() {
+        for (slot, yaml_from, yaml_to, ttl_from, ttl_to) in [
+            (
+                "record",
+                "record: b\n        ",
+                "",
+                format!("cqa:record <{S}b> ;"),
+                String::new(),
+            ),
+            (
+                "slot",
+                "slot: rank\n        value: '2'",
+                "value: '2'",
+                "cqa:slot \"rank\" ; cqa:value \"2\"".into(),
+                "cqa:value \"2\"".into(),
+            ),
+            (
+                "value",
+                "\n        value: '2'",
+                "",
+                "; cqa:value \"2\"".into(),
+                String::new(),
+            ),
+        ] {
+            let missing = Refusal::missing("q1's expected value", slot);
+            let yaml = yaml_ordered(&TWO).replacen(yaml_from, yaml_to, 1);
+            assert_eq!(refusal(from_yaml_0_2(&yaml)), missing, "{yaml}");
+            let ttl = turtle_ordered(&TWO).replacen(&ttl_from, &ttl_to, 1);
+            assert_eq!(turtle_refused(&ttl), missing, "{ttl}");
+        }
+    }
+
+    #[test]
+    fn an_expected_value_written_as_a_bare_string_is_refused() {
+        // The Turtle holds the IRI panschema minted, not the string.
+        assert_eq!(
+            refusal(from_yaml_0_2(&with_a_bare_value(&yaml_ordered(&TWO)))),
+            Refusal::NotAnExpectedValue("zz".into())
+        );
+        assert_eq!(
+            turtle_refused(&with_a_bare_value(&turtle_ordered(&TWO))),
+            Refusal::NotAnExpectedValue(format!("<{CQA}zz>"))
+        );
+    }
+
+    #[test]
+    fn a_turtle_expected_value_written_as_a_named_node_is_an_entry() {
+        let blank = format!(
+            "[ a cqa:ExpectedValue ; cqa:record <{S}a> ; cqa:slot \"rank\" ; cqa:value \"1\" ]"
+        );
+        let ttl = turtle_ordered(&TWO);
+        assert!(ttl.contains(&blank), "{ttl}");
+        let named = format!(
+            "{}\ncqa:e1 cqa:record <{S}a> ; cqa:slot \"rank\" ; cqa:value \"1\" .",
+            ttl.replacen(&blank, "cqa:e1", 1)
+        );
+        let read = Benchmark::from_turtle(&named).unwrap();
+        assert_eq!(
+            read.questions[0].order.as_ref().map(|o| &o.tiers[..]),
+            Some(&[tier(&["a"]), tier(&["b"])][..]),
+            "{named}"
+        );
+    }
+
+    #[test]
+    fn a_record_written_as_a_curie_expands_against_the_schemas_prefixes() {
+        let data = yaml_ordered(&[("cqa:a", "rank", "1"), ("b", "rank", "2")]);
+        let read = from_yaml_0_2(&data).unwrap();
+        assert_eq!(
+            read.questions[0].order.as_ref().map(|o| &o.tiers[..]),
+            Some(&[BTreeSet::from([format!("{CQA}a")]), tier(&["b"])][..]),
+            "{data}"
+        );
+    }
+
+    #[test]
+    fn a_turtle_literal_where_an_expected_value_belongs_is_refused() {
+        let ttl = turtle_ordered(&TWO).replacen(
+            "cqa:expected_values ",
+            "cqa:expected_values \"zz\", ",
+            1,
+        );
+        assert_eq!(
+            turtle_refused(&ttl),
+            Refusal::NotAnExpectedValue("zz".into())
+        );
+    }
+
+    #[test]
+    fn a_turtle_target_written_as_a_bare_iri_is_refused_naming_it() {
+        // As panschema writes a bare string in `target_datasets`.
+        assert_eq!(
+            turtle_refused(&benchmark_targeting("cqa:d")),
+            Refusal::NotATargetDataset(format!("<{CQA}d>"))
+        );
+    }
+
+    #[test]
+    fn a_part_of_a_value_at_another_slot_is_never_refused() {
+        // Unquoted in the YAML, and two-valued in the Turtle: each a
+        // refusal at the ordering slot.
+        let values = [TWO[0], TWO[1], ("c", "vintage", "2018")];
+        let yaml = yaml_ordered(&values).replacen("value: '2018'", "value: 2018", 1);
+        let ttl = turtle_ordered(&values).replacen("cqa:value \"2018\"", "cqa:value 2018, 2019", 1);
+        let expected = [tier(&["a"]), tier(&["b"])];
+        let order = |read: Result<Benchmark>| read.unwrap().questions[0].order.clone().unwrap();
+        assert_eq!(order(from_yaml_0_2(&yaml)).tiers, expected, "{yaml}");
+        assert_eq!(order(Benchmark::from_turtle(&ttl)).tiers, expected, "{ttl}");
+    }
+
+    #[test]
+    fn an_order_over_a_record_outside_the_anchors_is_refused() {
+        let outside = Refusal::RankedOutsideAnchors {
+            question: "q1".into(),
+            record: format!("{S}b"),
+        };
+        let yaml =
+            yaml_ordered(&TWO).replacen("expected_anchors: [a, b]", "expected_anchors: [a]", 1);
+        let ttl = turtle_ordered(&TWO).replacen(&format!(", <{S}b> ;"), " ;", 1);
+        assert_eq!(refusal(from_yaml_0_2(&yaml)), outside, "{yaml}");
+        assert_eq!(turtle_refused(&ttl), outside, "{ttl}");
+    }
+
+    #[test]
+    fn two_faults_in_one_question_are_refused_alike_by_both_readers() {
+        // The YAML lists the entry with no record first; the store orders
+        // the Turtle's as it likes.
+        let yaml = yaml_ordered(&TWO)
+            .replacen("record: a\n        ", "", 1)
+            .replacen("value: '2'", "value: ['2', '3']", 1);
+        let ttl = turtle_ordered(&TWO)
+            .replacen(&format!("cqa:record <{S}a> ;"), "", 1)
+            .replacen("cqa:value \"2\"", "cqa:value \"2\", \"3\"", 1);
+        let two = Refusal::MoreThanOne {
+            record: "q1's expected value".into(),
+            slot: "value",
+        };
+        assert_eq!(refusal(from_yaml_0_2(&yaml)), two, "{yaml}");
+        assert_eq!(turtle_refused(&ttl), two, "{ttl}");
+    }
+
+    /// The benchmark `first` with the question of `second` added as `q2`,
+    /// in YAML or in Turtle.
+    fn with_a_second_question(first: &str, second: &str) -> String {
+        let iri = format!("<{CQA}b/q1>");
+        let q2 = |question: &str| {
+            question
+                .replace("id: q1", "id: q2")
+                .replace("cqa:id \"q1\"", "cqa:id \"q2\"")
+                .replace("b/q1", "b/q2")
+        };
+        match second.rfind(&format!("{iri} cqa:id")) {
+            Some(at) => {
+                let listed = format!("cqa:competency_question_answers {iri}");
+                assert!(first.contains(&listed), "{first}");
+                let both = format!("{listed}, <{CQA}b/q2>");
+                format!(
+                    "{}\n{}",
+                    first.replacen(&listed, &both, 1),
+                    q2(&second[at..])
+                )
+            }
+            None => {
+                let at = second.find("  - id: q1").expect("a YAML question q1");
+                format!("{first}{}", q2(&second[at..]))
+            }
+        }
+    }
+
+    #[test]
+    fn of_two_faulty_questions_both_readers_refuse_the_first_by_id() {
+        let not_a_number = [("a", "rank", "1"), ("b", "rank", "good")];
+        let yaml_number = yaml_ordered(&not_a_number);
+        let ttl_number = turtle_ordered(&not_a_number);
+        let yaml_twice = yaml_ordered(&TWO).replacen("value: '2'", "value: ['2', '3']", 1);
+        let ttl_twice =
+            turtle_ordered(&TWO).replacen("cqa:value \"2\"", "cqa:value \"2\", \"3\"", 1);
+        let number = Refusal::NotANumber {
+            question: "q1".into(),
+            slot: "rank".into(),
+            value: "good".into(),
+        };
+        let twice = Refusal::MoreThanOne {
+            record: "q1's expected value".into(),
+            slot: "value",
+        };
+        for (yaml, ttl, first) in [
+            (
+                with_a_second_question(&yaml_number, &yaml_twice),
+                with_a_second_question(&ttl_number, &ttl_twice),
+                number,
+            ),
+            (
+                with_a_second_question(&yaml_twice, &yaml_number),
+                with_a_second_question(&ttl_twice, &ttl_number),
+                twice,
+            ),
+        ] {
+            assert_eq!(refusal(from_yaml_0_2(&yaml)), first, "{yaml}");
+            assert_eq!(turtle_refused(&ttl), first, "{ttl}");
+        }
+    }
+
+    #[test]
+    fn a_turtle_blank_node_where_text_belongs_is_refused_naming_the_slot() {
+        let blank = |record: &str, slot| Refusal::NotText {
+            record: record.into(),
+            slot,
+            kind: "a blank node".into(),
+        };
+        let ordered_by =
+            turtle_ordered(&TWO).replacen("cqa:ordered_by \"rank\"", "cqa:ordered_by []", 1);
+        assert_eq!(turtle_refused(&ordered_by), blank("q1", "ordered_by"));
+        let record =
+            turtle_ordered(&TWO).replacen(&format!("cqa:record <{S}b>"), "cqa:record []", 1);
+        assert_eq!(
+            turtle_refused(&record),
+            blank("q1's expected value", "record")
+        );
+    }
+
+    #[test]
+    fn a_record_that_does_not_expand_in_an_expected_value_is_named_as_the_entry() {
+        let data = yaml_ordered(&TWO).replacen(
+            "target_schema: https://example.org/s/",
+            "target_schema: [https://example.org/s/]",
+            1,
+        );
+        let unread = read_past(from_yaml_0_2(&data));
+        let gap = Unread::Unexpanded {
+            record: "q1's expected value".into(),
+            slot: "record".into(),
+            base_slot: "target_schema".into(),
+        };
+        assert_eq!(
+            unread.iter().filter(|u| **u == gap).count(),
+            2,
+            "{unread:?}"
+        );
+    }
+
+    #[test]
+    fn a_record_named_where_an_entry_belongs_keeps_its_name() {
+        // The benchmark's target is the string `q1`, and q1's first
+        // expected value the string `b`: neither is an entry, so a field
+        // read past on q1 or on b is still q1's or b's.
+        let data = yaml_ordered(&TWO)
+            .replacen("  - dataset: d\n    version: '1'\n", "  - q1\n", 1)
+            .replacen(
+                "    expected_values:\n",
+                "    expected_values:\n      - b\n",
+                1,
+            )
+            .replacen("id: b\n", "id: b\nnope: x\n", 1)
+            .replacen(
+                "    question: one?\n",
+                "    question: one?\n    nope: x\n",
+                1,
+            );
+        let unread = read_past(from_yaml_0_2(&data));
+        for (record, class) in [("b", "Benchmark"), ("q1", "CompetencyQuestionAnswer")] {
+            let past = Unread::UndeclaredField {
+                record: record.into(),
+                field: "nope".into(),
+                class: class.into(),
+            };
+            assert!(unread.contains(&past), "{record}: {unread:?}");
+        }
+    }
+
+    #[test]
+    fn a_question_ordered_by_two_slots_is_refused() {
+        let two = Refusal::MoreThanOne {
+            record: "q1".into(),
+            slot: "ordered_by",
+        };
+        let slots = ["rank", "position"];
+        assert_eq!(refusal(from_yaml_0_2(&yaml_key(&TWO, &slots))), two);
+        assert_eq!(turtle_refused(&turtle_key(&TWO, &slots)), two);
+    }
+
+    #[test]
+    fn an_expected_value_with_two_values_at_a_part_is_refused_naming_it() {
+        for (slot, yaml_from, yaml_to, ttl_from, ttl_to) in [
+            (
+                "record",
+                "record: b\n",
+                "record: [b, c]\n",
+                format!("cqa:record <{S}b>"),
+                format!("cqa:record <{S}b>, <{S}c>"),
+            ),
+            (
+                "slot",
+                "slot: rank\n        value: '2'",
+                "slot: [rank, x]\n        value: '2'",
+                "cqa:slot \"rank\" ; cqa:value \"2\"".into(),
+                "cqa:slot \"rank\", \"x\" ; cqa:value \"2\"".into(),
+            ),
+            (
+                "value",
+                "value: '2'",
+                "value: ['2', '3']",
+                "cqa:value \"2\"".into(),
+                "cqa:value \"2\", \"3\"".into(),
+            ),
+        ] {
+            let two = Refusal::MoreThanOne {
+                record: "q1's expected value".into(),
+                slot,
+            };
+            let yaml = yaml_ordered(&TWO).replacen(yaml_from, yaml_to, 1);
+            assert_eq!(refusal(from_yaml_0_2(&yaml)), two, "{yaml}");
+            let ttl = turtle_ordered(&TWO).replacen(&ttl_from, &ttl_to, 1);
+            assert_eq!(turtle_refused(&ttl), two, "{ttl}");
+        }
+    }
+
+    #[test]
+    fn a_misspelled_slot_in_an_expected_value_is_refused_naming_the_entry() {
+        let data = yaml_ordered(&TWO).replacen("value: '2'", "vaule: '2'", 1);
+        assert_eq!(
+            read_past(from_yaml_0_2(&data)),
+            [Unread::UndeclaredField {
+                record: "q1's expected value".into(),
+                field: "vaule".into(),
+                class: "ExpectedValue".into(),
+            }]
         );
     }
 

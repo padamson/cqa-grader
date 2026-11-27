@@ -3,10 +3,10 @@ name: cqa
 description: |-
   A vocabulary for competency question benchmarks over a knowledge
   graph. One record pairs a question with the specification of its
-  correct answer: the answer in prose, the kind of answering the
-  question demands, and the records a correct answer must retrieve
-  and cite. The graph being evaluated is external — its records are
-  referenced by IRI rather than held here.
+  correct answer: the answer in prose and the values it states, the
+  kind of answering the question demands, and the records a correct
+  answer must retrieve and cite. The graph being evaluated is
+  external — its records are referenced by IRI rather than held here.
 license: https://creativecommons.org/licenses/by/4.0/
 version: 0.2.0-dev
 prefixes:
@@ -37,6 +37,8 @@ classes:
     - expected_citations
     - unconnected_anchors
     - connecting_class
+    - expected_values
+    - ordered_by
     slot_usage:
       id:
         key: true
@@ -80,6 +82,15 @@ classes:
         slot_conditions:
           expected_anchors:
             minimum_cardinality: 2
+    - description: An ordered answer states two or more values to put in order.
+      preconditions:
+        slot_conditions:
+          ordered_by:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          expected_values:
+            minimum_cardinality: 2
   Benchmark:
     description: A named set of competency question answers, evaluated against one knowledge graph.
     subclass_of: cco:ont00000958
@@ -97,6 +108,8 @@ classes:
     - target_schema
     - target_schema_version
     - target_datasets
+    - retrieval_budget
+    - citation_precision_floor
     attributes:
       competency_question_answers:
         description: The questions this benchmark holds.
@@ -109,6 +122,13 @@ classes:
     slots:
     - dataset
     - version
+  ExpectedValue:
+    description: 'One value a correct answer states: a record of the target graph, one of its slots, and the value the record carries there.'
+    subclass_of: cco:ont00000958
+    slots:
+    - record
+    - slot
+    - value
   DomainRecord:
     description: A record in the knowledge graph that a benchmark is evaluated against. Its instances belong to that graph, not to this schema.
     slots:
@@ -160,6 +180,32 @@ slots:
   connecting_class:
     description: 'The class a joining record would belong to, as a URI in the target schema. Optional, because a benchmark can be written against a graph whose schema its author does not have: without it the claim is that no record of any kind joins the anchors, and with it the claim is narrowed to one kind.'
     range: uri
+  expected_values:
+    description: The values a correct answer states, each read from a record of the target graph. Every record named is among the anchors, since a value an answer depends on comes from a record the answer has to retrieve.
+    range: ExpectedValue
+    multivalued: true
+    inlined_as_list: true
+    annotations:
+      asserts_value:
+        value:
+          record_slot: record
+          slot_slot: slot
+          value_slot: value
+          among: expected_anchors
+  ordered_by:
+    description: The slot whose values order a correct answer, by the name the target schema gives it. A correct answer gives the records its expected values name at this slot in ascending order of those values, as the slot's range orders them. Records with equal values tie, and a correct answer may give tied records in any order.
+  record:
+    description: The record that carries the value, as an IRI into the target graph.
+    range: DomainRecord
+    required: true
+    annotations:
+      expand_against: target_schema
+  slot:
+    description: The slot that carries the value, by the name the target schema gives it.
+    required: true
+  value:
+    description: The value, written as the target graph's data writes it and read by the range of the slot it is claimed at.
+    required: true
   target_schema:
     description: The schema the target graph's records conform to, as a URI.
     range: uri
@@ -188,6 +234,19 @@ slots:
       records_version_of:
         value:
           sibling_slot: dataset
+  retrieval_budget:
+    description: The most records a correct answer may retrieve for any one question. A question with more anchors than this could not be answered within it, so none may have more.
+    range: integer
+    minimum_value: 1
+    annotations:
+      bounds_count_of:
+        value:
+          counted_slot: expected_anchors
+  citation_precision_floor:
+    description: The least share of the records an answer cites that must be among its question's anchors. An answer that cites nothing is not held to it.
+    range: float
+    minimum_value: 0
+    maximum_value: 1
 enums:
   AnswerKindEnum:
     description: The kinds of answering a competency question can call for. Each names a different check on a correct answer.
