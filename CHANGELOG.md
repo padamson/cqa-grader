@@ -40,6 +40,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   the load read past.
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
+- Trace format 0.2: an attempt's optional `sequence` lists the records
+  the answer gives, in order, for a question the key orders. New traces,
+  the baseline's included, are written as 0.2 with no sequence. A 0.1
+  trace still reads, and one carrying a `sequence` is refused, as is a
+  sequence that lists a record twice.
 - `grade`: four base checks per question (`attempted`, `anchors-reached`,
   `citations-grounded`, `no-false-absence`) plus one per answer kind, with
   recall and precision reported per attempt. Text and JSON reports. An

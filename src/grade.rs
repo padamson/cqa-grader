@@ -539,6 +539,7 @@ mod tests {
             cited: q.expected_citations.clone(),
             asserts_absence: q.answer_kinds.contains(&AnswerKind::ClosedWorldNegative),
             answer: None,
+            sequence: None,
         }
     }
 

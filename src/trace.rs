@@ -19,8 +19,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-/// The trace format version this crate reads and writes.
-pub const TRACE_FORMAT: &str = "0.1";
+/// The trace format version this crate writes.
+pub const TRACE_FORMAT: &str = "0.2";
+
+/// Every trace format version this crate reads. 0.2 adds `sequence`.
+const READS: [&str; 2] = ["0.1", TRACE_FORMAT];
 
 /// The system that produced a trace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -109,6 +112,12 @@ pub struct Attempt {
     /// never reads it; a judge scoring it against `ground_truth` would.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<String>,
+    /// The records the answer gives, in the order it gives them, as IRIs
+    /// into the target graph, for a question the key orders. No record
+    /// appears twice. Format 0.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("uniqueItems" = true))]
+    pub sequence: Option<Vec<String>>,
 }
 
 impl Attempt {
@@ -120,6 +129,7 @@ impl Attempt {
             cited: BTreeSet::new(),
             asserts_absence: false,
             answer: None,
+            sequence: None,
         }
     }
 }
@@ -128,7 +138,7 @@ impl Attempt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Trace {
-    /// The trace format version. Must be [`TRACE_FORMAT`].
+    /// The trace format version: `0.2`, or `0.1`, which has no `sequence`.
     pub trace_format: String,
     /// The `cqa:id` of the benchmark these attempts answer (for wine,
     /// `wine-benchmark`).
@@ -175,10 +185,28 @@ impl Trace {
         Ok(trace)
     }
 
-    /// The format version is this crate's, and no question is attempted
-    /// twice.
+    /// The format version is one this crate reads, every field is one that
+    /// version has, and no question is attempted twice.
     pub fn check(&self) -> Result<()> {
         check_format(&self.trace_format)?;
+        for attempt in &self.attempts {
+            let Some(sequence) = &attempt.sequence else {
+                continue;
+            };
+            if self.trace_format == "0.1" {
+                return Err(Error::Trace(format!(
+                    "{}: `sequence` is a field of trace_format \"0.2\", and this trace is \"0.1\"",
+                    attempt.question
+                )));
+            }
+            let mut seen = BTreeSet::new();
+            if let Some(twice) = sequence.iter().find(|r| !seen.insert(r.as_str())) {
+                return Err(Error::Trace(format!(
+                    "{}: <{twice}> is in the sequence twice",
+                    attempt.question
+                )));
+            }
+        }
         let mut seen = BTreeSet::new();
         match self
             .attempts
@@ -216,11 +244,12 @@ impl Trace {
 }
 
 fn check_format(format: &str) -> Result<()> {
-    if format == TRACE_FORMAT {
+    if READS.contains(&format) {
         Ok(())
     } else {
         Err(Error::Trace(format!(
-            "trace_format {format:?} is not {TRACE_FORMAT:?}"
+            "trace_format {format:?} is not one this grader reads ({})",
+            READS.map(|r| format!("{r:?}")).join(", ")
         )))
     }
 }
@@ -290,7 +319,8 @@ pub(crate) mod tests {
         }"#;
         let err = Trace::from_json(json).unwrap_err();
         assert!(
-            matches!(&err, Error::Trace(m) if m.contains("9.0")),
+            matches!(&err, Error::Trace(m)
+                if m.contains("9.0") && m.contains("\"0.1\"") && m.contains("\"0.2\"")),
             "{err}"
         );
     }
@@ -329,6 +359,7 @@ pub(crate) mod tests {
             .retrieved
             .insert("https://w3id.org/wine-linkml/seafood-dish".into());
         attempt.asserts_absence = true;
+        attempt.sequence = Some(vec!["z".into(), "a".into(), "m".into()]);
         trace.attempts.push(attempt);
         let json = trace.to_json().unwrap();
         assert_eq!(Trace::from_json(&json).unwrap(), trace);
@@ -337,7 +368,7 @@ pub(crate) mod tests {
     #[test]
     fn missing_optional_fields_default() {
         let json = r#"{
-            "trace_format": "0.1",
+            "trace_format": "0.2",
             "benchmark": "b",
             "graph": {"dataset": "d", "dataset_version": "1"},
             "system": {"name": "s"},
@@ -349,6 +380,94 @@ pub(crate) mod tests {
         assert!(attempt.cited.is_empty());
         assert!(!attempt.asserts_absence);
         assert!(attempt.answer.is_none());
+        assert!(attempt.sequence.is_none());
+    }
+
+    /// A trace in format `format` with one attempt, `attempt`, as JSON.
+    fn one_attempt(format: &str, attempt: &str) -> String {
+        format!(
+            r#"{{
+                "trace_format": "{format}",
+                "benchmark": "b",
+                "graph": {{"dataset": "d", "dataset_version": "1"}},
+                "system": {{"name": "s"}},
+                "attempts": [{attempt}]
+            }}"#
+        )
+    }
+
+    #[test]
+    fn a_format_0_1_trace_still_reads() {
+        let trace = Trace::from_json(&one_attempt(
+            "0.1",
+            r#"{"question": "q", "retrieved": ["r"]}"#,
+        ))
+        .unwrap();
+        assert_eq!(trace.trace_format, "0.1");
+        assert_eq!(
+            trace.attempts[0].retrieved,
+            BTreeSet::from(["r".to_string()])
+        );
+        assert_eq!(trace.attempts[0].sequence, None);
+    }
+
+    #[test]
+    fn a_format_0_2_sequence_keeps_its_order() {
+        // Unlike `retrieved` and `cited`, which are sets.
+        let json = one_attempt("0.2", r#"{"question": "q", "sequence": ["z", "a", "m"]}"#);
+        let trace = Trace::from_json(&json).unwrap();
+        assert_eq!(
+            trace.attempts[0].sequence.as_deref(),
+            Some(&["z".to_string(), "a".to_string(), "m".to_string()][..])
+        );
+    }
+
+    #[test]
+    fn a_sequence_in_a_format_0_1_trace_is_refused() {
+        // A 0.1 grader would refuse it as a field it does not know. A null
+        // `sequence` is no sequence, and reads.
+        let json = one_attempt("0.1", r#"{"question": "q7", "sequence": ["a"]}"#);
+        let err = Trace::from_json(&json).unwrap_err();
+        assert!(
+            matches!(&err, Error::Trace(m) if m.contains("q7") && m.contains("`sequence`") && m.contains("\"0.2\"")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn a_record_twice_in_a_sequence_is_refused() {
+        let json = one_attempt("0.2", r#"{"question": "q7", "sequence": ["a", "b", "a"]}"#);
+        let err = Trace::from_json(&json).unwrap_err();
+        assert!(
+            matches!(&err, Error::Trace(m) if m.contains("q7") && m.contains("<a>")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn a_null_sequence_in_a_format_0_1_trace_reads_as_none() {
+        let json = one_attempt("0.1", r#"{"question": "q", "sequence": null}"#);
+        assert_eq!(Trace::from_json(&json).unwrap().attempts[0].sequence, None);
+    }
+
+    #[test]
+    fn a_new_trace_is_in_format_0_2() {
+        let trace = Trace::new(
+            "b",
+            graph(),
+            System {
+                name: "s".into(),
+                version: None,
+                notes: None,
+            },
+        );
+        assert_eq!(trace.trace_format, "0.2");
+    }
+
+    #[test]
+    fn an_attempt_with_no_sequence_writes_none() {
+        let json = serde_json::to_value(Attempt::empty("q")).unwrap();
+        assert_eq!(json.get("sequence"), None, "{json}");
     }
 
     #[test]

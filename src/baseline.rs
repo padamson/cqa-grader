@@ -214,6 +214,7 @@ impl Baseline {
             asserts_absence: false,
             retrieved,
             answer: None,
+            sequence: None,
         })
     }
 

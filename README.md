@@ -146,7 +146,7 @@ cqa-grader trace-schema
 
 ```json
 {
-  "trace_format": "0.1",
+  "trace_format": "0.2",
   "benchmark": "wine-benchmark",
   "graph": { "dataset": "worked-example", "dataset_version": "0.2.1" },
   "system": { "name": "my-retriever", "version": "0.3.0" },
@@ -177,7 +177,10 @@ benchmark's `cqa:id` for the question. `retrieved` and `cited` are IRIs into
 the target graph, exactly as the benchmark writes its anchors.
 `asserts_absence` is how a system says "none on record", which is what a
 closed-world negative is graded on. `answer` (optional) is the prose answer,
-unread by this tier. The schema is in
+unread by this tier. `sequence` (optional) lists the records the answer
+gives, in the order it gives them, for a question the key orders, with no
+record twice. It is new in format 0.2; the grader still reads a 0.1 trace,
+and refuses one that carries a `sequence`. The schema is in
 [schemas/trace.schema.json](schemas/trace.schema.json).
 
 ### The checks

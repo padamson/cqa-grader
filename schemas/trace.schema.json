@@ -24,7 +24,7 @@
       "$ref": "#/$defs/System"
     },
     "trace_format": {
-      "description": "The trace format version. Must be [`TRACE_FORMAT`].",
+      "description": "The trace format version: `0.2`, or `0.1`, which has no `sequence`.",
       "type": "string"
     }
   },
@@ -70,6 +70,17 @@
           "description": "Every record retrieval reached, as IRIs into the target graph.",
           "type": "array",
           "default": [],
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "sequence": {
+          "description": "The records the answer gives, in the order it gives them, as IRIs\ninto the target graph, for a question the key orders. No record\nappears twice. Format 0.2.",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "type": "string"
           },

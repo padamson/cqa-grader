@@ -540,6 +540,7 @@ fn perfect_trace() -> Trace {
             cited: q.expected_citations.clone(),
             asserts_absence: q.answer_kinds.contains(&AnswerKind::ClosedWorldNegative),
             answer: None,
+            sequence: None,
         })
         .collect();
     trace
@@ -605,6 +606,9 @@ fn the_documented_trace_is_read_as_written() {
     // passes it; the rest fail as unattempted.
     let snippet =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/site/snippets/step_trace.json");
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&snippet).unwrap()).unwrap();
+    assert_eq!(written["trace_format"], cqa_grader::TRACE_FORMAT);
     let (code, json) = grade_json(&snippet, &[]);
     assert_eq!(code, Some(1), "{json}");
     let passed: Vec<&str> = json["results"]
