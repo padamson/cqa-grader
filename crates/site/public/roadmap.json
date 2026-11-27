@@ -174,18 +174,6 @@
       ]
     },
     {
-      "id": "roadmap-now-expected-values",
-      "title": "Check the answer, not only its evidence",
-      "blurb": "Where cqa declares an expected value for an answer kind (a lookup's value, a comparison's order, a quantity within a tolerance), the kind's check compares it with the attempt's, so reaching the right records and answering wrongly fails. The trace gains a structured answer to compare. Waits on cqa v0.2, which scopes expected values.",
-      "horizon": "now",
-      "acceptance": [
-        {
-          "criterion": "A lookup whose answer is not the expected value fails, though it reached every anchor",
-          "test": "src/grade.rs::a_lookup_with_the_wrong_value_fails"
-        }
-      ]
-    },
-    {
       "id": "roadmap-now-evidence-sets",
       "title": "Alternative evidence sets",
       "blurb": "More than one set of records can support some answers; any one set satisfies the anchors, so a correct answer resting on other evidence than the key's first choice passes. Waits on cqa declaring them, which its v0.2 scope does not yet include.",
@@ -214,9 +202,47 @@
       ]
     },
     {
+      "id": "roadmap-next-answer-order",
+      "title": "Check an answer's order",
+      "blurb": "Where a question is ordered by a slot, a correct answer gives its records in ascending order of their expected values at that slot, and records whose values tie may come in any order. The trace gains an optional sequence of record IRIs, in format 0.2, and 0.1 traces grade as before. An ordered question answered with no sequence is unanswered, so the baseline still passes a benchmark's CI; one answered in the wrong order is wrong. Values compare as numbers, and a key whose values at the slot are not all numbers is refused until the grader reads them by the target slot's range.",
+      "horizon": "next",
+      "acceptance": [
+        {
+          "criterion": "An ordered question answered out of order is wrong, though it reached every anchor",
+          "test": "src/grade.rs::an_answer_out_of_order_is_wrong"
+        },
+        {
+          "criterion": "Records whose expected values tie pass in either order",
+          "test": "src/grade.rs::tied_records_pass_in_either_order"
+        },
+        {
+          "criterion": "An ordered question answered with no sequence is unanswered, not wrong",
+          "test": "src/grade.rs::an_ordered_question_with_no_sequence_is_unanswered"
+        },
+        {
+          "criterion": "Positions sort as numbers, so 10 comes after 9",
+          "test": "src/grade.rs::positions_sort_as_numbers"
+        },
+        {
+          "criterion": "A trace in format 0.1 still grades",
+          "test": "src/trace.rs::a_format_0_1_trace_still_reads"
+        },
+        {
+          "criterion": "A key whose values at an ordering slot are not all numbers is refused with exit code 2",
+          "test": "tests/cli.rs::an_order_over_values_that_are_not_numbers_is_a_usage_error"
+        }
+      ]
+    },
+    {
       "id": "roadmap-later-traversal",
       "title": "Baseline traversal through panschema",
       "blurb": "The baseline looks up neighboring records with panschema's subgraph search instead of its own SPARQL queries.",
+      "horizon": "later"
+    },
+    {
+      "id": "roadmap-later-expected-values",
+      "title": "Check the values an answer states",
+      "blurb": "Where the key gives an expected value, such as a lookup's value or a quantity, the attempt states its own as a record, a slot and a value, and the check compares the two by the slot's range, so reaching the right records and stating a wrong value fails. Waits on a system that can state values, of which a service graded through its API is the first, and on reading the key's values by the target schema.",
       "horizon": "later"
     },
     {
