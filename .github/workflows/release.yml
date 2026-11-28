@@ -74,7 +74,7 @@ jobs:
       # The release job reads the notes, but it runs after the publish, when
       # a CHANGELOG with no section for the tag could no longer stop it.
       - name: Install parse-changelog
-        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
         with:
           tool: parse-changelog
           fallback: none
@@ -112,7 +112,7 @@ jobs:
           save-if: false
 
       - name: Install cargo-semver-checks
-        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
         with:
           tool: cargo-semver-checks
           fallback: none
@@ -191,7 +191,7 @@ jobs:
           shared-key: release-${{ matrix.target }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
         with:
           tool: cargo-nextest
           fallback: none
@@ -342,7 +342,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install parse-changelog
-        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
         with:
           tool: parse-changelog
           fallback: none
