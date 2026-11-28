@@ -38,6 +38,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - A refused benchmark is `Error::Benchmark(Refusal)`, with a variant for
   each reason and, for a partial LinkML load, an `Unread` for each part
   the load read past.
+- An ordered question's `order` check: the attempt's `sequence` gives
+  every record the key ranks, ascending by its value at `ordered_by`, with
+  tied records in any order and other records anywhere. An ordered
+  question answered with no `sequence` ends `unanswered`, so the baseline
+  still meets `--require no-wrong-answers`; one out of order, or missing a
+  ranked record (an empty `sequence` misses them all), is `wrong`. Every
+  record in a `sequence` must have been retrieved (`sequence-grounded`).
 - The trace format (`Trace`, `Attempt`, `System`), with a generated JSON
   Schema in `schemas/trace.schema.json`.
 - Trace format 0.2: an attempt's optional `sequence` lists the records
@@ -75,15 +82,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   they must agree with it, or the baseline exits 2.
 - Each question ends `passed`, `unanswered`, `wrong`, or `unattempted`
   (`Outcome`), and the summary counts them; the outcome replaces the
-  report's per-question `passed` flag and its `failed` count. Unanswered is a closed-world
-  negative whose records were reached with no absence asserted and nothing
-  else failed; any other failure is a wrong answer. `grade` holds the trace
-  to a requirement (`Require`): `answered`, the default, needs every
-  question passed; `no-wrong-answers` tolerates the unanswered and still
-  fails a wrong answer or an unattempted question, so the baseline meets it
-  over wine. The CLI takes it as `--require`, the report records it, and
-  the text report names it in its header and the outcome in its verdict
-  column.
+  report's per-question `passed` flag and its `failed` count. Unanswered
+  is a question whose every failed check failed by silence: a closed-world
+  negative whose records were reached with no absence asserted, or an
+  ordered question with no `sequence`. Any other failure is a wrong
+  answer. `grade` holds the trace to a requirement (`Require`):
+  `answered`, the default, needs every question passed; `no-wrong-answers`
+  tolerates the unanswered and still fails a wrong answer or an
+  unattempted question, so the baseline meets it over wine. The CLI takes
+  it as `--require`, the report records it, and the text report names it
+  in its header and the outcome in its verdict column.
 - Unusable input is refused with exit code 2 rather than graded: a
   benchmark question missing its id, text or ground truth, two questions
   sharing an id, a closed-world negative with no unconnected anchors, a

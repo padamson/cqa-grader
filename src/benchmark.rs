@@ -2048,7 +2048,7 @@ competency_question_answers:
     }
 
     /// The test benchmarks' target schema, which bare records expand against.
-    const S: &str = "https://example.org/s/";
+    pub(crate) const S: &str = "https://example.org/s/";
 
     /// Two records ranked at `rank`.
     const TWO: [(&str, &str, &str); 2] = [("a", "rank", "1"), ("b", "rank", "2")];
@@ -2084,12 +2084,12 @@ competency_question_answers:
 
     /// The same benchmark as `yaml_ordered(values)`, as panschema writes
     /// it in Turtle.
-    fn turtle_ordered(values: &[(&str, &str, &str)]) -> String {
+    pub(crate) fn turtle_ordered(values: &[(&str, &str, &str)]) -> String {
         turtle_key(values, &["rank"])
     }
 
     /// `turtle_ordered`, ordered by each of `ordered_by`.
-    fn turtle_key(values: &[(&str, &str, &str)], ordered_by: &[&str]) -> String {
+    pub(crate) fn turtle_key(values: &[(&str, &str, &str)], ordered_by: &[&str]) -> String {
         let anchors: Vec<String> = values.iter().map(|(r, _, _)| format!("<{S}{r}>")).collect();
         let entries: Vec<String> = values
             .iter()

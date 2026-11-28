@@ -42,11 +42,10 @@ carries an `answer` field for when it is.
 A cqa 0.2 key can also give expected values: the value a record carries
 at a named slot. panschema checks those against the graph, and this tier
 does not compare them with the values an answer states. Where a question
-is ordered by one of those slots, checking the order in which an answer
-gives its records is planned for this tier. The grader already reads the
-order, comparing the values as numbers until it reads them by the slot's
-range, so a key whose values at that slot are not all numbers is refused
-with exit code 2.
+is ordered by one of those slots, this tier checks the order in which an
+answer gives its records (its `sequence`). It compares the values as
+numbers until it reads them by the slot's range, so a key whose values at
+that slot are not all numbers is refused with exit code 2.
 
 panschema and cqa-grader divide the work at the trace. `panschema verify
 --strict` checks a graph and its key at rest (every anchor resolves, every
@@ -186,7 +185,8 @@ and refuses one that carries a `sequence`. The schema is in
 ### The checks
 
 Every question gets four base checks, then one per answer kind it
-names. All must pass.
+names. An attempt that gives a `sequence` gets `sequence-grounded`, and a
+question the key orders gets `order`. All must pass.
 
 | Check | Passes when |
 |---|---|
@@ -194,21 +194,26 @@ names. All must pass.
 | `anchors-reached` | `retrieved` ⊇ `expected_anchors` |
 | `citations-grounded` | `cited` ⊆ `retrieved` |
 | `no-false-absence` | the attempt `asserts_absence` only if the question is a `closed_world_negative` |
+| `sequence-grounded` | `sequence` ⊆ `retrieved`, for an attempt that gives a `sequence` |
 | `lookup`, `comparison`, `synthesis` | `anchors-reached` passes (no further check until cqa declares expected values) |
 | `attribution` | `cited` ⊇ `expected_citations`, and `cited` is not empty |
 | `closed_world_negative` | every `unconnected_anchors` record was retrieved, and the attempt `asserts_absence` |
 | `citations-rest` | `cited` ⊇ `expected_citations`, for a question with citations that does not name `attribution` |
+| `order` | `sequence` holds every record the key ranks, in ascending order of its value at `ordered_by` (tied records in any order, other records anywhere), for an ordered question |
 
 Each question ends in one of four outcomes, and the summary counts them.
-`passed`: every check did. `unanswered`: a closed-world negative whose
-unconnected anchors were all reached, with no absence asserted and nothing
-else failed; the system had the records in hand and said nothing. `wrong`:
-a check failed any other way. In this tier the answer is the evidence, so
-a false "none on record", an anchor not reached, a citation retrieval
-never reached, or an attribution without its citations is a wrong answer
-whatever the prose says. `unattempted`: the trace holds no attempt. The
-text report shows the outcome in its verdict column, and the JSON report
-carries it per question, along with the requirement the grade was held to.
+`passed`: every check did. `unanswered`: every check that failed did so by
+silence, which is a closed-world negative whose unconnected anchors were
+all reached with no absence asserted, or an ordered question answered with
+no `sequence`; the system had the records in hand and said nothing. An
+empty `sequence` is not silence: it leaves the ranked records out, so the
+order fails. `wrong`: a check failed any other way. In this tier the
+answer is the evidence, so a false "none on record", an anchor not
+reached, a citation retrieval never reached, or an attribution without its
+citations is a wrong answer whatever the prose says. `unattempted`: the
+trace holds no attempt. The text report shows the outcome in its verdict
+column, and the JSON report carries it per question, along with the
+requirement the grade was held to.
 
 Recall and precision over `expected_anchors` are reported for every
 attempt. Recall of one is what `anchors-reached` requires. Precision is

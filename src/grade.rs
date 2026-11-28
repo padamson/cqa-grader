@@ -1,7 +1,8 @@
 //! Score a trace against a benchmark.
 //!
 //! Every question gets the same four base checks, then one check per
-//! answer kind it names. All of them must pass for the question to pass.
+//! answer kind it names, and `sequence-grounded` and `order` where they
+//! apply. All of them must pass for the question to pass.
 //!
 //! Base checks:
 //!
@@ -12,6 +13,8 @@
 //! - `no-false-absence`: the attempt `asserts_absence` only if the question
 //!   is a `closed_world_negative`. "None on record" for a question whose
 //!   answer is on record is a wrong answer, however much was retrieved.
+//! - `sequence-grounded`, when the attempt gives a `sequence`: every record
+//!   in it was retrieved.
 //!
 //! Per-kind checks:
 //!
@@ -25,13 +28,14 @@
 //!
 //! When a question names `expected_citations` without naming
 //! `attribution` (wine's synthesis question does), a `citations-rest`
-//! check runs the same superset test.
+//! check runs the same superset test. When the key orders a question, an
+//! `order` check runs: the attempt's `sequence` gives every record the
+//! order ranks, ascending by its value, tied records in any order.
 //!
-//! Every question ends in one of four [`Outcome`]s: passed, unanswered (a
-//! closed-world negative whose records were reached, with no absence
-//! asserted and nothing else failed), wrong, or unattempted. A grade is
-//! held to a [`Require`]ment, which says which outcomes fail it. The
-//! variants of both carry the definitions.
+//! Every question ends in one of four [`Outcome`]s: passed, unanswered
+//! (every check that failed did so by silence), wrong, or unattempted. A
+//! grade is held to a [`Require`]ment, which says which outcomes fail
+//! it. The variants of both carry the definitions.
 //!
 //! Recall and precision over `expected_anchors` are reported for every
 //! attempt as information. Recall of one is what `anchors-reached`
@@ -43,7 +47,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::benchmark::{AnswerKind, Benchmark, Question};
+use crate::benchmark::{AnswerKind, Benchmark, Order, Question};
 use crate::trace::{Attempt, Graph, System, Trace, write_json};
 use crate::{Error, Result};
 
@@ -99,9 +103,10 @@ impl Check {
 pub enum Outcome {
     /// Every check passed.
     Passed,
-    /// A closed-world negative whose unconnected anchors were all reached,
-    /// with no absence asserted and nothing else failed. The system had
-    /// the records in hand and said nothing.
+    /// Every check that failed did so by silence, and one did: a
+    /// closed-world negative whose unconnected anchors were all reached,
+    /// with no absence asserted, or an ordered question answered with no
+    /// sequence. The system had the records in hand and said nothing.
     Unanswered,
     /// A check failed some other way. In this tier the answer is the
     /// evidence, so a false "none on record", an anchor not reached, a
@@ -197,7 +202,7 @@ pub struct Summary {
     pub questions: usize,
     /// Questions whose every check passed.
     pub passed: usize,
-    /// Closed-world negatives reached and left unanswered.
+    /// Questions whose records were reached and left unanswered.
     pub unanswered: usize,
     /// Questions answered wrongly.
     pub wrong: usize,
@@ -401,16 +406,20 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         "citations",
         "retrieved",
     ));
+    if let Some(sequence) = &attempt.sequence {
+        checks.push(Check::superset(
+            "sequence-grounded",
+            &attempt.retrieved,
+            &sequence.iter().cloned().collect(),
+            "records in the sequence",
+            "retrieved",
+        ));
+    }
 
     let negative = question
         .answer_kinds
         .contains(&AnswerKind::ClosedWorldNegative);
     let false_absence = attempt.asserts_absence && !negative;
-    // Reached a negative's records and said nothing: the one failure the
-    // outcome counts as an abstention rather than a wrong answer.
-    let abstained = negative
-        && !attempt.asserts_absence
-        && question.unconnected_anchors.is_subset(&attempt.retrieved);
     checks.push(Check::new(
         "no-false-absence",
         !false_absence,
@@ -432,6 +441,9 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         ));
     }
 
+    // The checks that failed by silence: the system had the records and
+    // said nothing (see `Outcome::Unanswered`).
+    let mut silent: Vec<&str> = Vec::new();
     for kind in &question.answer_kinds {
         checks.push(match kind {
             AnswerKind::Lookup | AnswerKind::Comparison | AnswerKind::Synthesis => {
@@ -471,6 +483,7 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
                         "unconnected anchors reached and absence asserted",
                     )
                 } else {
+                    silent.push(kind.as_str());
                     Check::new(
                         kind.as_str(),
                         false,
@@ -480,13 +493,17 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
             }
         });
     }
+    if let Some(order) = &question.order {
+        if attempt.sequence.is_none() {
+            silent.push("order");
+        }
+        checks.push(order_check(order, attempt.sequence.as_deref()));
+    }
 
-    // An abstention is the negative's own check failing and nothing else;
-    // a second failure makes the attempt a wrong answer however silent.
-    let failed = checks.iter().filter(|c| !c.passed).count();
-    let outcome = if failed == 0 {
+    let mut failed = checks.iter().filter(|c| !c.passed).peekable();
+    let outcome = if failed.peek().is_none() {
         Outcome::Passed
-    } else if abstained && failed == 1 {
+    } else if failed.all(|c| silent.contains(&c.name.as_str())) {
         Outcome::Unanswered
     } else {
         Outcome::Wrong
@@ -513,6 +530,66 @@ fn grade_question(question: &Question, attempt: Option<&Attempt>) -> QuestionRes
         precision,
         checks,
     }
+}
+
+/// The `order` check of `sequence` against `order`.
+fn order_check(order: &Order, sequence: Option<&[String]>) -> Check {
+    let Some(sequence) = sequence else {
+        return Check::new(
+            "order",
+            false,
+            format!(
+                "the question is ordered by `{}`, and the attempt gives no sequence",
+                order.slot
+            ),
+        );
+    };
+    let tier: BTreeMap<&str, usize> = order
+        .tiers
+        .iter()
+        .enumerate()
+        .flat_map(|(i, records)| records.iter().map(move |r| (r.as_str(), i)))
+        .collect();
+    let given: BTreeSet<String> = sequence.iter().cloned().collect();
+    let ranked: BTreeSet<String> = tier.keys().map(|r| r.to_string()).collect();
+    let missing = Check::superset(
+        "order",
+        &given,
+        &ranked,
+        "ranked records",
+        "in the sequence",
+    );
+    if !missing.passed {
+        return missing;
+    }
+    let mut highest: Option<(&str, usize)> = None;
+    for record in sequence {
+        let Some(&at) = tier.get(record.as_str()) else {
+            continue;
+        };
+        match highest {
+            Some((above, top)) if at < top => {
+                return Check::new(
+                    "order",
+                    false,
+                    format!(
+                        "<{record}> comes after <{above}>, though its `{}` is lower",
+                        order.slot
+                    ),
+                );
+            }
+            _ => highest = Some((record.as_str(), at)),
+        }
+    }
+    Check::new(
+        "order",
+        true,
+        format!(
+            "all {} ranked records in ascending order of `{}`",
+            ranked.len(),
+            order.slot
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -965,8 +1042,8 @@ mod tests {
 
     #[test]
     fn an_abstention_with_another_failure_is_wrong() {
-        // Silence excuses only the negative's own check. `abstained &&
-        // failed == 1` mutated to `>= 1` would call this unanswered.
+        // Silence excuses only itself, so a second failure of another kind
+        // makes the attempt wrong.
         let b = wine();
         let mut a = silent_negative(&b);
         a.cited.insert("https://w3id.org/wine-linkml/merlot".into());
@@ -1061,6 +1138,188 @@ mod tests {
         let text = grade(&b, &t, Require::NoWrongAnswers).unwrap().to_text();
         assert!(line(&text, "cq-03").contains("  unanswered  "), "{text}");
         assert!(line(&text, "cq-02").contains("  UNATTEMPTED  "), "{text}");
+    }
+
+    /// A one-question benchmark ordered by `rank` over `values`, each a
+    /// record and its value, as the reader reads it from Turtle.
+    fn ordered_by_rank(values: &[(&str, &str)]) -> Benchmark {
+        let values: Vec<(&str, &str, &str)> =
+            values.iter().map(|(r, v)| (*r, "rank", *v)).collect();
+        Benchmark::from_turtle(&crate::benchmark::tests::turtle_ordered(&values)).unwrap()
+    }
+
+    /// `record` as an IRI into the ordered benchmarks' target.
+    fn iri(record: &str) -> String {
+        format!("{}{record}", crate::benchmark::tests::S)
+    }
+
+    /// The outcome of an attempt at `b`'s one question that retrieves its
+    /// anchors and gives `sequence`.
+    fn given(b: &Benchmark, sequence: Option<&[&str]>) -> QuestionResult {
+        let q = &b.questions[0];
+        let attempt = Attempt {
+            sequence: sequence.map(|s| s.iter().map(|r| iri(r)).collect()),
+            ..perfect(q)
+        };
+        grade_question(q, Some(&attempt))
+    }
+
+    #[test]
+    fn an_answer_out_of_order_is_wrong() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2"), ("c", "3")]);
+        let r = given(&b, Some(&["c", "b", "a"]));
+        assert!(check(&r, "anchors-reached").passed, "{r:?}");
+        assert!(!check(&r, "order").passed, "{r:?}");
+        assert_eq!(r.outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn an_answer_in_order_passes() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2"), ("c", "3")]);
+        let r = given(&b, Some(&["a", "b", "c"]));
+        assert_eq!(r.outcome, Outcome::Passed, "{r:?}");
+    }
+
+    #[test]
+    fn tied_records_pass_in_either_order() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "1"), ("c", "2")]);
+        for sequence in [["a", "b", "c"], ["b", "a", "c"]] {
+            assert_eq!(
+                given(&b, Some(&sequence)).outcome,
+                Outcome::Passed,
+                "{sequence:?}"
+            );
+        }
+        assert_eq!(given(&b, Some(&["a", "c", "b"])).outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn positions_sort_as_numbers() {
+        let b = ordered_by_rank(&[("p10", "10"), ("p9", "9")]);
+        assert_eq!(given(&b, Some(&["p9", "p10"])).outcome, Outcome::Passed);
+        assert_eq!(given(&b, Some(&["p10", "p9"])).outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn an_ordered_question_with_no_sequence_is_unanswered() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let r = given(&b, None);
+        assert!(!check(&r, "order").passed, "{r:?}");
+        assert_eq!(r.outcome, Outcome::Unanswered);
+    }
+
+    #[test]
+    fn silence_on_an_order_with_another_failure_is_wrong() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let q = &b.questions[0];
+        let mut attempt = perfect(q);
+        attempt.retrieved.remove(&iri("a"));
+        assert_eq!(grade_question(q, Some(&attempt)).outcome, Outcome::Wrong);
+    }
+
+    #[test]
+    fn a_ranked_record_missing_from_the_sequence_is_wrong_and_named() {
+        // An empty sequence leaves every ranked record out; giving none is
+        // the abstention.
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2"), ("c", "3")]);
+        for (sequence, missing) in [
+            (&["a", "c"][..], vec![iri("b")]),
+            (&[][..], vec![iri("a"), iri("b"), iri("c")]),
+        ] {
+            let r = given(&b, Some(sequence));
+            let c = check(&r, "order");
+            assert!(!c.passed, "{sequence:?}: {c:?}");
+            assert_eq!(c.missing, missing, "{sequence:?}");
+            assert_eq!(r.outcome, Outcome::Wrong, "{sequence:?}");
+        }
+    }
+
+    #[test]
+    fn other_records_in_a_sequence_leave_its_order_alone() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let q = &b.questions[0];
+        let mut attempt = perfect(q);
+        attempt.retrieved.extend([iri("x"), iri("y")]);
+        // Before, between, and after: an unranked record read as the
+        // lowest tier or the highest would fail one of them.
+        attempt.sequence = Some(["x", "a", "y", "b", "x2"].map(iri).to_vec());
+        attempt.retrieved.insert(iri("x2"));
+        assert_eq!(grade_question(q, Some(&attempt)).outcome, Outcome::Passed);
+    }
+
+    #[test]
+    fn a_record_in_the_sequence_never_retrieved_is_ungrounded() {
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let r = given(&b, Some(&["a", "z", "b"]));
+        let c = check(&r, "sequence-grounded");
+        assert!(!c.passed, "{c:?}");
+        assert_eq!(c.missing, vec![iri("z")]);
+        assert_eq!(r.outcome, Outcome::Wrong);
+    }
+
+    /// `ordered_by_rank`'s benchmark with no `ordered_by`, so its
+    /// question is unordered though its values are at `rank`.
+    fn unordered() -> Benchmark {
+        let values = [("a", "rank", "1"), ("b", "rank", "2")];
+        Benchmark::from_turtle(&crate::benchmark::tests::turtle_key(&values, &[])).unwrap()
+    }
+
+    #[test]
+    fn an_unordered_question_runs_no_order_check() {
+        let b = unordered();
+        let r = given(&b, Some(&["b", "a"]));
+        assert!(r.checks.iter().all(|c| c.name != "order"), "{r:?}");
+        assert_eq!(r.outcome, Outcome::Passed);
+    }
+
+    #[test]
+    fn a_sequence_is_grounded_only_when_one_is_given() {
+        // On an unordered question too: a record named is a record claimed.
+        let b = unordered();
+        let grounded = |sequence: Option<&[&str]>| {
+            given(&b, sequence)
+                .checks
+                .iter()
+                .find(|c| c.name == "sequence-grounded")
+                .map(|c| c.passed)
+        };
+        assert_eq!(grounded(None), None);
+        assert_eq!(grounded(Some(&["a"])), Some(true));
+        assert_eq!(grounded(Some(&["a", "z"])), Some(false));
+    }
+
+    #[test]
+    fn two_silences_leave_a_question_unanswered() {
+        // A negative the key also orders, its records reached, with no
+        // absence asserted and no sequence.
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let mut q = b.questions[0].clone();
+        q.answer_kinds.insert(AnswerKind::ClosedWorldNegative);
+        q.unconnected_anchors = q.expected_anchors.clone();
+        let attempt = Attempt {
+            asserts_absence: false,
+            ..perfect(&q)
+        };
+        let r = grade_question(&q, Some(&attempt));
+        let failed: Vec<&str> = r
+            .checks
+            .iter()
+            .filter(|c| !c.passed)
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(failed, ["closed_world_negative", "order"], "{r:?}");
+        assert_eq!(r.outcome, Outcome::Unanswered);
+    }
+
+    #[test]
+    fn an_unanswered_order_passes_no_wrong_answers() {
+        // The baseline gives no sequence, and a benchmark's CI holds it to
+        // this requirement.
+        let b = ordered_by_rank(&[("a", "1"), ("b", "2")]);
+        let attempt = perfect(&b.questions[0]);
+        let report = grade(&b, &trace_with(&b, vec![attempt]), Require::NoWrongAnswers).unwrap();
+        assert!(report.passed, "{}", report.to_text());
+        assert_eq!(report.summary.unanswered, 1);
     }
 
     /// The report line for one question.
